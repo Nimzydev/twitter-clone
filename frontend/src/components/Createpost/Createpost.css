@@ -1,0 +1,35 @@
+.createpost{
+    border-bottom: 10px solid black;
+}
+
+
+.post-input{
+    display: flex;
+    align-items: center;
+}
+
+.post-input >img{
+    width: 25px;
+    height: 20px;
+    border-radius: 20px;
+}
+
+.post-input >input{
+    border: none;
+    margin-left: 10px;
+    flex: 1;
+    border-radius: 20px;
+}
+
+.form{
+    display: flex;
+    flex-direction: column;
+}
+
+.btn{
+    margin-left: auto;
+    width: 50px;
+    background-color: aqua;
+    border-radius: 30px;
+    cursor: pointer;
+}

@@ -1,0 +1,19 @@
+.home{
+    flex: 0.4;
+    border-right: 2px solid antiquewhite;
+    min-width: fit-content;
+    overflow: auto;
+}
+
+
+
+.home-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    position: relative;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid black;
+    cursor: pointer;
+}

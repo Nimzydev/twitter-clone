@@ -1,0 +1,28 @@
+.notifications{
+    flex: 0.4;
+    min-width: fit-content;
+    border-right: 2px solid antiquewhite;
+    overflow: auto;
+}
+
+.notif-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 15px;
+    padding-right: 15px;
+    border-bottom: 2px solid antiquewhite;
+    padding-bottom: 15px;
+}
+
+
+.notif-header >h1{
+    color: antiquewhite;
+    font-weight: 600px;
+    font-size: 20px;
+}
+
+.setting-icon{
+    color: antiquewhite;
+    cursor: pointer;
+}

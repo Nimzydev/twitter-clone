@@ -1,0 +1,25 @@
+
+.messagepanel{
+    border-right: 2px solid antiquewhite;
+}
+
+.search-container{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-container >input{
+    border-radius: 20px;
+    background-color: aqua;
+    border: none;
+}
+
+.searchmessage{
+    color: antiquewhite;
+    border-radius: 20px;
+    background-color: aqua;
+    width: 45px;
+    height: 30px;
+    cursor: pointer;
+}

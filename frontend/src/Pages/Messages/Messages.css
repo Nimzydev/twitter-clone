@@ -1,0 +1,8 @@
+.messages{
+    display: flex;
+    flex: 1;
+    min-width: fit-content;
+    min-height: 100vh;
+    border-right: 2px solid antiquewhite;
+}
+

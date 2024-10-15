@@ -1,0 +1,25 @@
+.ncontainer{
+    display: flex;
+    border-bottom: 2px solid antiquewhite;
+    padding: 15px;
+}
+
+.notif-description{
+    display: flex;
+    flex-direction: column;
+    padding-left: 10px;
+}
+
+.notif-description >img{
+    width: 30px;
+    height: 20px;
+    border-radius: 20px;
+}
+
+.notif-icon{
+    color: red;
+}
+
+.notif-message{
+    color: antiquewhite;
+}

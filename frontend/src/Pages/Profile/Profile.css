@@ -1,0 +1,114 @@
+.profile{
+    flex: 0.4;
+    min-width: fit-content;
+    border-right: 2px solid antiquewhite;
+    overflow-y: scroll;
+}
+
+.profile-header{
+    display: flex;
+    padding: 15px;
+}
+
+
+
+.post-num{
+    color: antiquewhite;
+}
+
+.back-icon{
+    color: antiquewhite;
+    cursor: pointer;
+}
+
+.user-info{
+    display: flex;
+    flex-direction: column;
+    padding-left: 20px;
+}
+
+.user-info >h1{
+    color: antiquewhite;
+    font-size: 15px;
+}
+
+.bg-grey{
+    border: 80px solid gray;
+}
+
+
+
+.user-profile{
+    display: flex;
+    align-items: center;
+}
+
+
+
+
+.user-profile >img{
+    width: 70px;
+    height: 60px;
+    border-radius: 15px;
+    margin-left: 15px;
+    cursor: pointer;
+}
+
+.user-profile >button{
+    background-color: black;
+    width: 80px;
+    height: 20px;
+    border-radius: 15px;
+    color: aliceblue;
+    margin-left: auto;
+    cursor: pointer;
+}
+
+
+
+.user-details{
+    display: flex;
+    flex-direction: column;
+    padding-left: 5px;
+}
+
+
+
+.user-details >h1{
+    color: antiquewhite;
+}
+
+.user-details >p{
+    color: antiquewhite;
+}
+
+.user-email{
+    color: antiquewhite;
+}
+
+.bio{
+    padding-left: 5px;
+}
+
+.user-followers >p{
+    color: antiquewhite;
+}
+
+.user-followers{
+    display: flex;
+    align-items: center;
+    margin-top: 25px;
+    padding-left: 5px;
+    gap: 15px;
+}
+
+
+.options{
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    list-style: none;
+    color: antiquewhite;
+    padding-top: 15px;
+    border-bottom: 2px solid antiquewhite; 
+}

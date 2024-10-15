@@ -1,0 +1,9 @@
+.rightpanel{
+    flex: 0.3;
+    min-width: fit-content;
+    
+}
+
+.panel-search{
+    cursor: pointer;
+}

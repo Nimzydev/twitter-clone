@@ -1,0 +1,21 @@
+.messageusers{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
+.messageusers >h1{
+    color: antiquewhite;
+    font-weight: 500px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+
+.messageusers >img{
+    width: 30px;
+    height: 20px;
+    border-radius: 20px;
+    cursor: pointer;
+}

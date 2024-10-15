@@ -1,0 +1,107 @@
+.sidebar{
+    flex: 0.3;
+    border-right: 2px solid antiquewhite;
+}
+
+.icons{
+    color: antiquewhite;
+}
+
+.font{
+    font-weight: 600;
+    font-size: 15px;
+    padding-left: 20px;
+}
+
+.home-icon{
+    display: flex;
+    align-items: center;
+    padding-left: 25px;
+    padding-bottom: 25px;
+    padding-top: 15px;
+    cursor: pointer;
+}
+
+.home-icon >h1{
+    color: antiquewhite;
+}
+
+.home-icon:hover{
+    background-color: aqua;
+    border-radius: 20px;
+    width: 150px;
+    
+}
+
+
+
+.notifications-icon:hover{
+    background-color: aqua;
+    border-radius: 20px;
+    width: 150px;
+}
+
+.notifications-icon >h1{
+    color: antiquewhite;
+}
+
+
+.notifications-icon{
+    display: flex;
+    align-items: center;
+    padding-left: 25px;
+    padding-bottom: 25px;
+    padding-top: 15px;
+    cursor: pointer;
+}
+
+
+.messages-icon:hover{
+    background-color: aqua;
+    border-radius: 20px;
+    width: 150px;
+}
+
+.messages-icon >h1{
+    color: antiquewhite;
+}
+
+.messages-icon{
+    display: flex;
+    align-items: center;
+    padding-left: 25px;
+    padding-bottom: 25px;
+    padding-top: 15px;
+    cursor: pointer;
+}
+
+
+
+.profile-icon:hover{
+    background-color: aqua;
+    border-radius: 20px;
+    width: 150px;
+}
+
+.profile-icon >h1{
+    color: antiquewhite;
+
+
+}
+
+
+.profile-icon{
+    display: flex;
+    align-items: center;
+    padding-left: 25px;
+    padding-bottom: 25px;
+    padding-top: 15px;
+    cursor: pointer;
+}
+
+
+.logo{
+    margin-left: 25px;
+    width: 30px;
+    height: 30px;
+}

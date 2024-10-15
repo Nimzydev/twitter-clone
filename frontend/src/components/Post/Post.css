@@ -1,0 +1,42 @@
+.post{
+    display: flex;
+    justify-content: flex-start;
+    border-bottom: 10px solid antiquewhite;
+}
+
+
+.post-header >img{
+    width: 25px;
+    height: 20px;
+    border-radius: 20px;
+}
+
+.name-style{
+    color: antiquewhite;
+}
+
+.email-style{
+    color: aqua;
+}
+
+.post-body >p{
+    margin-left: 25px;
+    color: antiquewhite;
+}
+
+.post-body >img{
+    margin-left: 15px;
+    padding: 15px;
+    object-fit: contain;
+}
+
+.post-footer{
+    display: flex;
+    justify-content: space-evenly;
+    margin-top: 10x;
+}
+
+.post-icons{
+    cursor: pointer;
+    color: antiquewhite;
+}
