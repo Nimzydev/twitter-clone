@@ -1,0 +1,58 @@
+.signin{
+    flex: 1;
+    min-width: fit-content;
+    display: flex;
+    align-items: center;
+}
+
+
+.signin-inputs >h1{
+    color: antiquewhite;
+}
+
+.signin-inputs >p{
+    color: antiquewhite;
+    padding-top: 15px;
+    padding-bottom: 15px;
+}
+
+
+
+.signin-inputs{
+    display: flex;
+    flex-direction: column;
+}
+
+.signin-details{
+    display: flex;
+    flex-direction: column;
+}
+
+.signin-details >input{
+    background-color: black;
+    color: gold;
+    border-radius: 5px;
+    height: 30px;
+}
+
+
+    
+
+
+.signin-btn{
+    background-color: aqua;
+    border-radius: 20px;
+    margin-top: 15px;
+    cursor: pointer;
+}
+
+.signup-button{
+    border-radius: 20px;
+    background-color: black;
+    color: gold;
+    cursor: pointer;
+}
+
+.signin-error{
+    color: red;
+}

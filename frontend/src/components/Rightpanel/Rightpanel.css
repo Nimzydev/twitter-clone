@@ -1,9 +1,19 @@
-.rightpanel{
-    flex: 0.3;
-    min-width: fit-content;
-    
+.rightpanel {
+  padding: 15px;
 }
 
+.search-input input {
+  width: 100%;
+  padding: 10px;
+  outline: none;
+  border-radius: 20px;
+  color: black;
+}
+
+
+
 .panel-search{
+    color: antiquewhite;
+    margin-left: 10px;
     cursor: pointer;
 }

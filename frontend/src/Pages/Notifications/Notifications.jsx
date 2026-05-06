@@ -1,21 +1,110 @@
-import React from "react";
-import "./Notifications.css";
+import React, { useState, useEffect } from "react";
 import { IoSettingsOutline } from "react-icons/io5";
 import Ncontainer from "./Ncontainer";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { TailSpin } from "react-loader-spinner";
 
+function Notifications() {
+  const [openSettings, setOpenSettings] = useState(false);
+  const queryClient = useQueryClient();
 
-function Notifications () {
-    return(
-        <div className="notifications">
-            <div className="notif-header">
-                <h1>Notifications</h1>
-                <IoSettingsOutline className="setting-icon" />
-                 </div>
-                 <Ncontainer/>
+  const { data: notifications, isLoading } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications/allnotifications");
+      const data = await res.json();
 
+      if (!res.ok) throw new Error(data.error);
+      return data;
+    },
+  });
 
+  // ✅ MARK AS READ ON OPEN
+  useEffect(() => {
+    const markRead = async () => {
+      try {
+        await fetch("/api/notifications/markread", {
+          method: "PUT",
+        });
+
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    markRead();
+  }, []);
+
+  const { mutate: deleteNotifications } = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/notifications/deleteall", {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      toast.success("All notifications cleared");
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  return (
+    <div className="w-full max-w-2xl mx-auto">
+
+      <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <h1 className="text-lg font-semibold text-white">
+          Notifications
+        </h1>
+
+        <div className="relative">
+          <IoSettingsOutline
+            onClick={() => setOpenSettings(!openSettings)}
+            className="cursor-pointer text-gray-400 hover:text-white"
+            size={20}
+          />
+
+          {openSettings && (
+            <div className="absolute right-0 mt-2 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-10">
+              <button
+                onClick={deleteNotifications}
+                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-800 text-red-400"
+              >
+                Delete all notifications
+              </button>
+            </div>
+          )}
         </div>
-    )
+      </div>
+
+      {isLoading && (
+        <div className="flex justify-center py-10">
+          <TailSpin width={40} height={40} color="white" />
+        </div>
+      )}
+
+      {!isLoading && notifications?.length === 0 && (
+        <div className="flex justify-center py-10">
+          <p className="text-gray-400 text-sm">
+            You have no notifications
+          </p>
+        </div>
+      )}
+
+      <div className="divide-y divide-gray-800">
+        {notifications?.map((notification) => (
+          <Ncontainer
+            key={notification._id}
+            notification={notification}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default Notifications;

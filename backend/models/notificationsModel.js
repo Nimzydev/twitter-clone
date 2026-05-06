@@ -1,23 +1,31 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"; 
 
 const notificationsSchema = new mongoose.Schema({
     from:{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true
+        required: true,
     },
     receiver:{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true
+        required: true,
     },
     type:{
         type: String,
         required: true,
-        enum: ["follow", "like", "retweet", "comment", "message"]
+        enum: ["follow", "like", "retweet", "comment", "message"],
     },
     message:{
         type: String,
+    },
+    refPost:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post",
+    },
+    refComment:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Comment",
     },
     read:{
         type: Boolean,

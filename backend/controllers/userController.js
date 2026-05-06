@@ -1,7 +1,8 @@
-import User from "../models/userModel.js";
+import User from "../models/userModel.js"; 
 import bcrypt from "bcryptjs";
 import { v2 as cloudinary } from "cloudinary"; 
 import Notifications from "../models/notificationsModel.js";
+import mongoose from "mongoose"; 
 
 export const followUnFollow = async (req,res) => {
     try {
@@ -24,16 +25,21 @@ export const followUnFollow = async (req,res) => {
             await User.findByIdAndUpdate({_id:userId}, {$pull: {following: receiverId}});
             await User.findByIdAndUpdate({_id:receiverId}, {$pull: {followers: userId}});
 
+            return res.status(200).json({message: "You have unfollowed successfully"});
+        } else {
+
+            await User.findByIdAndUpdate({_id:userId}, {$push: {following: receiverId}});
+            await User.findByIdAndUpdate({_id:receiverId}, {$push: {followers: userId}});
+
             const newNotification = new Notifications({
                 type: "follow",
                 from:userId,
                 receiver:receiverId,
                 message: "followed you"
-            })
-            return res.status(200).json({message: "You have unfollowed successfully"});
-        } else {
-            await User.findByIdAndUpdate({_id:userId}, {$push: {following: receiverId}});
-            await User.findByIdAndUpdate({_id:receiverId}, {$push: {followers: userId}});
+            });
+            
+            await newNotification.save();
+
             return res.status(200).json({message: "You have followed successfully"});
         }
 
@@ -45,9 +51,32 @@ export const followUnFollow = async (req,res) => {
     }
 }
 
+export const getAllUsers = async (req,res) =>{
+    try {
+        const userId = req.user._id
+        const user = await User.findById(userId);
+
+        if(!user){
+            return res.status(404).json({error:"User not found!"})
+        }
+
+        const allUsers = await User.find();
+
+        if(!allUsers){
+            return res.status(200).json([]);
+        }
+
+        return res.status(200).json(allUsers)
+        
+    } catch (error) {
+        console.log("Error in GetAllUsers controller", error)
+        return res.status(500).json({error: "Internal server error"})   
+    }
+}
+
 export const suggestedUsers = async (req,res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user._id; 
         const user = await User.findById(userId).select("following");
 
         const following = user.following;
@@ -82,7 +111,7 @@ export const updateUser = async (req,res) => {
 
         
 
-        if ((!currentPassword && newPassword) || (!newPassword && currentPassword)) {
+        if (!currentPassword && newPassword) {
             return res.status(400).json({error: "please provide current passord and new password"});
         }
 
@@ -135,5 +164,103 @@ export const updateUser = async (req,res) => {
 
 }
 
+export const getUserProfile = async (req,res) => {
+    try {
+        const {query} = req.params;
+        let user; 
+
+        if (mongoose.Types.ObjectId.isValid(query)) {
+            user = await User.findOne({_id: query});
+        } else{
+            user = await User.findOne({username: query});
+        }
+
+        return res.status(200).json(user);
+        
+    } catch (error) {
+        console.log("Error in GetUserProfile controller", error);
+        return res.status(500).json({error: "Internal server error!"});
+        
+    }
+}
+
+export const removeDeletedUser = async (req,res) => {
+    try {
+        const userId = req.user._id;
+        const user = await User.findById(userId).select("following")
+        
+        if (!user) {
+            return res.status(404).json({error: "user not found!"})
+        }
+
+        const followingList = user.following
+
+        let deletedUsers = followingList.find((f) => {
+            return f === null || undefined;
+        });
+
+        const badList = user.following.includes(deletedUsers)
+
+        if (badList) {
+            await User.findByIdAndUpdate({_id:userId}, {$pull: {following: deletedUsers}});
+        }
+
+        return res.status(200).json({message: "removed deleted users successfully!"});
+
+
+        
+    } catch (error) { 
+        console.log("Error in RemoveDeletedUser", error)
+        return res.status(500).json({error: "Internal server error"})
+        
+    }
+}
+
+export const getFollowingUsers = async (req,res) => {
+    try {
+        const userId = req.user._id;
+        const user = await User.findById(userId).select("following")
+
+        if(!user){
+            return res.status(404).json({error:"User not found!"})
+        }
+
+        const following = [...user.following]
+
+        const followingUsers = await User.find({_id: {$in: following }});
+
+        return res.status(200).json(followingUsers);
+
+
+        
+    } catch (error) {
+        console.log("Error in GetFollowingUsers controller", error);
+        return res.status(500).json({error:"Internal server error"})
+    }
+
+}
+
+
+export const searchUsers = async (req, res) => {
+    try {
+        const { query } = req.query;
+
+        if (!query) {
+            return res.status(200).json([]);
+        }
+
+        const users = await User.find({
+            $or: [
+                { username: { $regex: query, $options: "i" } },
+                { fullName: { $regex: query, $options: "i" } },
+            ],
+        }).select("-password");
+
+        return res.status(200).json(users);
+    } catch (error) {
+        console.log("Error in searchUsers controller", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
 
 

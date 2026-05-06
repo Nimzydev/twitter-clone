@@ -1,17 +1,29 @@
 import React from "react";
 import "./Home.css";
 import Createpost from "../../components/Createpost/Createpost";
-import Post from "../../components/Post/Post";
+import Posts from "../../components/Post/Posts";
+import { useState } from "react";  
 
-function Home () {
+function Home () { 
+
+    const [postType, setPostType] = useState("Home");  
+
+
+
+
+
     return(
-        <div className="home">
+         <div className="w-full border-x border-gray-700 min-h-screen">
             <div className="home-header">
-                <p>For you</p>
-                <p>Following</p>
+                <p className={postType==="Home" ? "active" : ""} onClick={()=> setPostType("Home")}>For you</p>
+                <p className={postType==="Following" ? "active" : ""} onClick={()=> setPostType("Following")}>Following</p>
                  </div>
-                 <Createpost/>
-                 <Post/>
+                 <Createpost/> 
+                 <Posts postType={postType}/>  
+                 
+
+                   
+
 
 
         </div>

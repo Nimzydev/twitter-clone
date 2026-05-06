@@ -1,0 +1,48 @@
+.editmodal{
+    min-width: fit-content;
+    height: 250px;
+    background-color: aqua;
+    margin-top: 25px;
+
+} 
+
+.title{
+    color: gold;
+}
+
+
+.update-inputs{
+    height: 150px;
+}
+
+.update-info{
+    display: flex;
+    flex-direction: column;
+}
+
+.name-section{
+    display: flex;
+    align-items: center;
+}
+
+.name-section >input{
+    flex: 1;
+}
+
+.email-section{
+    display: flex;
+    align-items: center;
+}
+
+.email-section >input{
+    flex: 1;
+}
+
+.password-section{
+    display: flex;
+    align-items: center;
+}
+
+.password-section >input{
+    flex: 1;
+}

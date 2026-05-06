@@ -13,6 +13,10 @@ const messageSchema = new mongoose.Schema({
     text:{
         type: String,
     },
+    read: {
+  type: Boolean,
+  default: false,
+}
 });
 
 const Message = mongoose.model("Message", messageSchema);

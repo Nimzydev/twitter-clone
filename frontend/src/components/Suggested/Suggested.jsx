@@ -1,30 +1,41 @@
 import React from "react";
 import "./Suggested.css";
-import { Link } from "react-router-dom"; 
+import { Link } from "react-router-dom";  
+import { useQuery } from "@tanstack/react-query";
+import Renderusers from "./Renderusers";
+import { TailSpin } from "react-loader-spinner";
 
-function Suggested () {
+function Suggested () { 
 
-    const data ={
-        id:1,
-        name: "john doe",
-        email: "john@email.com"
-    }
+    const {data:suggestedUsers,isLoading} = useQuery({
+        queryKey:["suggestedUsers"],
+        queryFn: async () =>{
+            try {
+                const res = await fetch("/api/user/suggested");
+                const data = await res.json();
+                if(!res.ok){
+                    throw new Error(data.error)
+                }
+
+                console.log(data)
+
+                return data;
+                
+            } catch (error) {
+                throw new Error(error.message)  
+            }
+        }
+    })
 
    
 
     return(
         <div className="suggested">
-            <Link>
-            <img className="suggest-img"src="avatar.jpg" alt="" />
-            </Link>
-            <div className="user-details">
-                <Link>
-                <p>{data.name}</p>
-                <span className="user-email">{data.email}</span>
-                </Link>
-                </div>
-                <button className="suggested-btn">Follow</button>
-
+        {isLoading && <TailSpin visible={true} width="50" height="40" color="gold"/>}
+        {!isLoading && !suggestedUsers && <p className="no-suggestedusers">There are no users!</p>}
+        {suggestedUsers?.length > 0 && suggestedUsers.map((user) => {
+            return <Renderusers key={user._id} user={user}/>
+        })}
         </div>
     )
 }

@@ -2,7 +2,7 @@ import express from "express";
 import { getMe, signUp, login, logout } from "../controllers/authController.js";
 import { protectRoute } from "../middleware/protectRoute.js";
 
-const route = express.Router();
+const route = express.Router(); 
 
 route.get("/me", protectRoute, getMe);
 route.post("/signup", signUp);

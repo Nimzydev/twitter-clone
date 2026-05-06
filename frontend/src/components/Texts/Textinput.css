@@ -1,0 +1,19 @@
+
+.textinput{
+    min-width: fit-content;
+}
+
+
+.text-container >input{
+    flex: 1;
+}
+
+.text-container{
+    display: flex;
+    align-items: center;
+}
+
+.send-icon{
+    color: antiquewhite;
+    cursor: pointer;
+}

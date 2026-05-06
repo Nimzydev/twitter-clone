@@ -19,3 +19,18 @@
     border-radius: 20px;
     cursor: pointer;
 }
+
+.selected{
+    background-color: aqua;
+}
+
+.online-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  background-color: #22c55e;
+  border-radius: 999px;
+  border: 2px solid black;
+}

@@ -21,6 +21,8 @@
     cursor: pointer;
 }
 
+
+
 .user-info{
     display: flex;
     flex-direction: column;
@@ -31,10 +33,45 @@
     color: antiquewhite;
     font-size: 15px;
 }
-
-.bg-grey{
-    border: 80px solid gray;
+.coverimg-container{
+    display: flex;
+    flex: 0.4;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
+
+.coverimg-edit{
+    color: aliceblue;
+    width: 50px;
+    height: 40px;
+    cursor: pointer;
+}
+
+.coverimg-edit:hover{
+    color: gold;
+}
+
+
+
+.coverimg{
+    width: 100%;
+    height: 150px;
+    cursor: pointer;
+}
+
+.coverimg-close{
+    color: antiquewhite;
+    width: 60px;
+    height: 50px;
+    cursor: pointer;
+}
+
+.coverimg-close:hover{
+    color: red;
+}
+
+
 
 
 
@@ -44,17 +81,50 @@
 }
 
 
+.imgselection-container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
-
-.user-profile >img{
-    width: 70px;
-    height: 60px;
-    border-radius: 15px;
+.profile-img{
+    width: 80px;
+    height: 70px;
     margin-left: 15px;
     cursor: pointer;
 }
 
-.user-profile >button{
+.imgclose{
+    width: 40px;
+    height: 30px;
+    color: red;
+    cursor: pointer;
+}
+
+
+
+
+
+.update-btn{
+    background-color: black;
+    width: 80px;
+    height: 20px;
+    border-radius: 15px; 
+    color: aliceblue;
+    margin-left: auto;
+    cursor: pointer;
+}
+
+.update-btn:hover{
+    background-color:chartreuse;
+    color: black;
+}
+
+.update-error{
+    color: red;
+}
+
+.editprofile-btn{
     background-color: black;
     width: 80px;
     height: 20px;
@@ -62,6 +132,11 @@
     color: aliceblue;
     margin-left: auto;
     cursor: pointer;
+}
+
+.editprofile-btn:hover{
+    background-color: aqua;
+    color: black;
 }
 
 
@@ -90,9 +165,27 @@
     padding-left: 5px;
 }
 
-.user-followers >p{
-    color: antiquewhite;
+.following{
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
+
+.following >p{
+    color: gold;
+}
+
+
+.followers{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.followers >p{
+    color: gold;
+}
+
 
 .user-followers{
     display: flex;
@@ -103,6 +196,20 @@
 }
 
 
+.active{
+    border-bottom: 2px solid gold;
+    padding-bottom: 5px;
+    color: aqua;
+}
+
+.user-error{
+    color: red;
+}
+
+.nouser-error{
+    color: red;
+}
+
 .options{
     display: flex;
     align-items: center;
@@ -112,3 +219,9 @@
     padding-top: 15px;
     border-bottom: 2px solid antiquewhite; 
 }
+
+.options >li{
+    cursor: pointer;
+}
+
+

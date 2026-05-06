@@ -1,17 +1,25 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
-import { generateTokenAndSetCookie } from "../utils/generateToken.js";
+import { generateTokenAndSetCookie } from "../utils/generateToken.js"; 
 
-export const getMe = async (req,res) => {
+export const getMe = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id)
+        if (!req.user) {
+            return res.status(401).json({ error: "Not authenticated" });
+        }
+
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
         return res.status(200).json(user);
-        
     } catch (error) {
-        console.log("Error in GetMe controller", error)
-        return res.status(500).json({error: "Internal server error!"});
+        console.log("Error in GetMe controller", error);
+        return res.status(500).json({ error: "Internal server error" });
     }
-}
+};
 
 export const signUp = async (req,res) => {
     try {
@@ -88,7 +96,7 @@ export const login = async (req,res) => {
         generateTokenAndSetCookie(validUser._id,res)
 
         return res.status(200).json({
-                id: validUser._id,
+                _id: validUser._id,
                 fullName: validUser.fullName,
                 email: validUser.email,
                 profilePic: validUser.profilePic,
@@ -107,7 +115,7 @@ export const login = async (req,res) => {
 
 export const logout = async (req,res) => {
     try {
-        res.cookie("jwt", "", {maxAge: 0});
+        res.cookie("jwt", "", {maxAge:0});
         return res.status(200).json({message: "You have logged out successfully"});
         
     } catch (error) {

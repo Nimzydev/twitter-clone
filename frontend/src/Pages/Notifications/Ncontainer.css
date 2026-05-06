@@ -20,6 +20,35 @@
     color: red;
 }
 
+.follow-icon{
+    color: greenyellow;
+}
+
 .notif-message{
     color: antiquewhite;
+}
+
+.notif-msg{
+    color: gold;
+}
+
+.notif-post-msg{
+    color: aqua;
+}
+
+.post-user-details{
+    display: flex;
+    align-items: center;
+}
+
+.notif-pic{
+    width: 40px;
+    height: 40px;
+}
+
+
+.delete-icon{
+    color: antiquewhite;
+    margin-left: auto;
+    cursor: pointer;
 }

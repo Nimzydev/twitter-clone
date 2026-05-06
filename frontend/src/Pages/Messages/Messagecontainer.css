@@ -1,4 +1,12 @@
-
+.messagecontainer{
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 1;
+    border-right: 2px solid greenyellow;
+    overflow: auto;
+}
 
 .container-header{
     border: 10px solid gold;
@@ -10,4 +18,32 @@
 
 .username-style{
     color: aqua;
+}
+
+.noselectedchat{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.noselectedchat >h1{
+    color: aliceblue;
+    font-size: 30px;
+}
+
+.startconversation{
+    color: aliceblue;
+    width: 80px;
+    height: 70px;
+}
+
+.delete-convo-btn {
+  background: red;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 5px;
+  margin-left: auto;
 }

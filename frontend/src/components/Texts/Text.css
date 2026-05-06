@@ -1,0 +1,53 @@
+
+
+.text{
+    display: flex;
+    padding: 25px;
+    gap: 10px; 
+}
+
+.message-text{
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+   
+}
+
+.message-img{
+    width: 30px;
+    height: 20px;
+}
+
+.message-text >p{
+    color: antiquewhite;
+}
+
+.flex-end{
+    display: flex;
+    background-color: blue;
+    width: 200px;
+    margin-left: auto;
+}
+
+.flex-start{
+    display: flex;
+    background-color: darkcyan;
+    width: 200px;
+}
+
+.message-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  color: red;
+  cursor: pointer;
+  margin-right: 5px;
+  font-size: 14px;
+}

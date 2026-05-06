@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose";  
 
 const postSchema = new mongoose.Schema({
     user:{
@@ -10,13 +10,13 @@ const postSchema = new mongoose.Schema({
         type: String,
     },
     img:{
-        type: String,
+        type: String, 
     },
-    likes:[
+    likes:[   
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            default: []
+            default: []   
         }
     ],
     retweets:[
@@ -36,4 +36,4 @@ const postSchema = new mongoose.Schema({
 
 const Post = mongoose.model("Post", postSchema);
 
-export default Post;
+export default Post; 

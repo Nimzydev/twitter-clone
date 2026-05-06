@@ -1,6 +1,10 @@
 
 .messagepanel{
     border-right: 2px solid antiquewhite;
+} 
+
+.nouser-text{
+    color: antiquewhite; 
 }
 
 .search-container{
@@ -11,7 +15,8 @@
 
 .search-container >input{
     border-radius: 20px;
-    background-color: aqua;
+    color: black;
+    background-color: white;
     border: none;
 }
 
@@ -22,4 +27,9 @@
     width: 45px;
     height: 30px;
     cursor: pointer;
+}
+
+.searchuser{
+    display: flex;
+    align-items: center;
 }

@@ -1,0 +1,40 @@
+.user-email{
+    color: red;
+    font-size: 15px;
+}
+
+.s-name{
+    color: antiquewhite;
+}
+
+.suggest-img{
+    width: 40px;
+    height: 35px;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.user-details >p{
+    font-size: 10px;
+    cursor: pointer;
+    color: red;
+}
+
+.user-details{
+    display: flex;
+    flex-direction: column;
+}
+
+.user-email{
+    font-size: 15px;
+    cursor: pointer;
+}
+
+
+.suggested-btn{
+    width: 70px;
+    height: 30px;
+    border-radius: 20px;
+    margin-left: auto;
+    cursor: pointer;
+}

@@ -1,29 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-
-*{
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: Outfit;
+@layer base {
+  body {
+    @apply bg-black text-white;
+  }
 }
-
-a{
-  text-decoration: none;
-}
-
-body{
-  background-color: black;
-}
-
-
-
-
-.app{
-  position: relative;
-  display: flex;
-  height: 100vh;
-  max-width: 1300px;
-}
-
-

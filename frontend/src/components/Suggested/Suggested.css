@@ -1,8 +1,8 @@
 .suggested{
     display: flex;
-    align-items: center;
+    flex-direction: column;
     border: 2px solid gray;
-    background-color: blue;
+    background-color: blueviolet;
     width: 280px;
 }
 
@@ -41,4 +41,8 @@
     border-radius: 20px;
     margin-left: auto;
     cursor: pointer;
+}
+
+.no-suggestedusers{
+    color: red;
 }
