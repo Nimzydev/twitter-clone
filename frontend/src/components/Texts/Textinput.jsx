@@ -1,76 +1,338 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+
 import { IoSend } from "react-icons/io5";
+
+import {
+  FaImage,
+  FaMicrophone,
+  FaStop,
+  FaVideo,
+} from "react-icons/fa";
+
 import { useSocketContext } from "../../context/SocketContext";
+
 import useGetConversation from "../../../zustand/useGetConversations";
-import { useQueryClient } from "@tanstack/react-query";
 
 function Textinput() {
-  const [message, setMessage] = useState("");
+  const [message, setMessage] =
+    useState("");
 
-  const { socket } = useSocketContext();
-  const { selectedConversation, setMessages } = useGetConversation();
-  const queryClient = useQueryClient();
+  const [media, setMedia] =
+    useState(null);
 
+  const [mediaPreview, setMediaPreview] =
+    useState(null);
+
+  const [isRecording, setIsRecording] =
+    useState(false);
+
+  const mediaRecorderRef = useRef(null);
+
+  const audioChunksRef = useRef([]);
+
+  const imageInputRef = useRef(null);
+
+  const videoInputRef = useRef(null);
+
+  const { socket } =
+    useSocketContext();
+
+  const {
+    selectedConversation,
+    setMessages,
+  } = useGetConversation();
+
+  // IMAGE SELECT
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    setMedia(file);
+
+    const reader = new FileReader();
+
+    reader.onload = () =>
+      setMediaPreview(reader.result);
+
+    reader.readAsDataURL(file);
+  };
+
+  // VIDEO SELECT
+  const handleVideoSelect = (e) => {
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    setMedia(file);
+
+    const previewUrl =
+      URL.createObjectURL(file);
+
+    setMediaPreview(previewUrl);
+  };
+
+  // START RECORDING
+  const startRecording = async () => {
+    try {
+      const stream =
+        await navigator.mediaDevices.getUserMedia(
+          {
+            audio: true,
+          }
+        );
+
+      const mediaRecorder =
+        new MediaRecorder(stream);
+
+      mediaRecorderRef.current =
+        mediaRecorder;
+
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (
+        event
+      ) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(
+            event.data
+          );
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(
+          audioChunksRef.current,
+          {
+            type: "audio/webm",
+          }
+        );
+
+        const audioFile = new File(
+          [audioBlob],
+          "voice-note.webm",
+          {
+            type: "audio/webm",
+          }
+        );
+
+        setMedia(audioFile);
+
+        setMediaPreview(
+          URL.createObjectURL(audioBlob)
+        );
+
+        stream
+          .getTracks()
+          .forEach((track) =>
+            track.stop()
+          );
+      };
+
+      mediaRecorder.start();
+
+      setIsRecording(true);
+    } catch (error) {
+      console.error(
+        "Microphone access denied:",
+        error
+      );
+    }
+  };
+
+  // STOP RECORDING
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+
+      setIsRecording(false);
+    }
+  };
+
+  // SEND MESSAGE
   const handleSendMessage = async () => {
-    if (!message.trim() || !selectedConversation) return;
+    if (!message.trim() && !media)
+      return;
 
     try {
+      const formData = new FormData();
+
+      formData.append("text", message);
+
+      if (media) {
+        formData.append("file", media);
+      }
+
       const res = await fetch(
         `/api/message/send/${selectedConversation._id}`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            text: message,
-          }),
+          body: formData,
         }
       );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
-      // ✅ INSTANT UI UPDATE (THIS WAS MISSING)
-      setMessages((prev) => [...prev, data]);
-
-      // ✅ SOCKET (optional but good)
-      if (socket) {
-        socket.emit("sendMessage", {
-          senderId: data.sender,
-          receiverId: selectedConversation._id,
-          message: data,
-        });
+      if (!res.ok) {
+        throw new Error(data.error);
       }
 
-      setMessage("");
+      // INSTANT UI UPDATE
+      setMessages((prev) => [
+        ...(prev || []),
+        data,
+      ]);
 
-      // optional (can keep)
-      queryClient.invalidateQueries({
-        queryKey: ["messages", selectedConversation._id],
+      // REALTIME SOCKET
+      socket?.emit("sendMessage", {
+        senderId: data.sender,
+        receiverId:
+          selectedConversation._id,
+        message: data,
       });
 
+      // RESET
+      setMessage("");
+
+      setMedia(null);
+
+      setMediaPreview(null);
+
+      if (imageInputRef.current) {
+        imageInputRef.current.value =
+          "";
+      }
+
+      if (videoInputRef.current) {
+        videoInputRef.current.value =
+          "";
+      }
     } catch (error) {
-      console.error("Send message error:", error.message);
+      console.error(error);
     }
   };
 
   return (
-    <div className="flex items-center gap-2 w-full p-2 border-t border-gray-700 bg-black">
-      <input
-        type="text"
-        placeholder="Type a message..."
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        className="flex-1 px-4 py-2 rounded-full bg-gray-900 text-white outline-none border border-gray-700 focus:border-gray-500"
-      />
+    <div className="p-2 border-t border-gray-800 bg-black">
 
-      <button
-        onClick={handleSendMessage}
-        className="bg-blue-600 p-2 rounded-full hover:bg-blue-700 transition"
-      >
-        <IoSend size={18} />
-      </button>
+      {/* MEDIA PREVIEW */}
+      {mediaPreview && (
+        <div className="mb-3">
+
+          {/* AUDIO */}
+          {media?.type?.startsWith(
+            "audio"
+          ) && (
+            <audio
+              controls
+              src={mediaPreview}
+              className="w-full"
+            />
+          )}
+
+          {/* VIDEO */}
+          {media?.type?.startsWith(
+            "video"
+          ) && (
+            <video
+              controls
+              className="w-52 rounded-lg"
+            >
+              <source
+                src={mediaPreview}
+              />
+            </video>
+          )}
+
+          {/* IMAGE */}
+          {media?.type?.startsWith(
+            "image"
+          ) && (
+            <img
+              src={mediaPreview}
+              className="w-24 h-24 object-cover rounded-lg"
+              alt="preview"
+            />
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+
+        <input
+          value={message}
+          onChange={(e) =>
+            setMessage(e.target.value)
+          }
+          placeholder="Type a message..."
+          className="flex-1 px-3 py-2 rounded-full bg-gray-900 text-white border border-gray-700 outline-none"
+        />
+
+        {/* IMAGE BUTTON */}
+        <button
+          type="button"
+          onClick={() =>
+            imageInputRef.current.click()
+          }
+          className="text-gray-400 hover:text-white transition cursor-pointer"
+        >
+          <FaImage />
+        </button>
+
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={handleImageSelect}
+        />
+
+        {/* MICROPHONE */}
+        {!isRecording ? (
+          <button
+            type="button"
+            onClick={startRecording}
+            className="text-gray-400 hover:text-white transition cursor-pointer"
+          >
+            <FaMicrophone />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="text-red-500 animate-pulse cursor-pointer"
+          >
+            <FaStop />
+          </button>
+        )}
+
+        {/* VIDEO BUTTON */}
+        <button
+          type="button"
+          onClick={() =>
+            videoInputRef.current.click()
+          }
+          className="text-gray-400 hover:text-white transition cursor-pointer"
+        >
+          <FaVideo />
+        </button>
+
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          hidden
+          onChange={handleVideoSelect}
+        />
+
+        {/* SEND */}
+        <button
+          onClick={handleSendMessage}
+          className="bg-blue-600 hover:bg-blue-700 transition p-2 rounded-full text-white"
+        >
+          <IoSend />
+        </button>
+      </div>
     </div>
   );
 }

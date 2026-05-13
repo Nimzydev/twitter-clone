@@ -1,60 +1,102 @@
 import React from "react";
-import "./Text.css";   
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import useGetConversation from "../../../zustand/useGetConversations.js"; 
 
-function Text ({message}) {
+import "./Text.css";
 
-    const queryClient = useQueryClient();
-    const authUser = queryClient.getQueryData(["authUser"]);
-    const {selectedConversation} = useGetConversation(); 
+import { useQueryClient } from "@tanstack/react-query";
 
-    const fromMe = message.sender === authUser._id;
-    const profilePic = fromMe ? authUser.profilePic : selectedConversation?.profilePic;
+import useGetConversation from "../../../zustand/useGetConversations.js";
 
-    // ✅ DELETE MESSAGE FUNCTION
-    const handleDeleteMessage = async () => {
-        try {
-            await fetch(`/api/message/deletemessage/${message._id}`, {
-                method: "DELETE",
-                credentials: "include"
-            });
+function Text({ message }) {
+  const queryClient = useQueryClient();
 
-            queryClient.invalidateQueries({ queryKey: ["messages"] });
+  const authUser =
+    queryClient.getQueryData([
+      "authUser",
+    ]);
 
-        } catch (error) {
-            console.error(error);
-        }
-    };
+  const { selectedConversation } =
+    useGetConversation();
 
-    return(
-        <div className="text">
-            <div className={`message-wrapper ${fromMe ? "own" : ""}`}>
-                
-                {fromMe && (
-                    <button 
-                        className="delete-btn"
-                        onClick={handleDeleteMessage}
-                    >
-                        🗑
-                    </button>
-                )}
+  const fromMe =
+    message.sender.toString() ===
+    authUser?._id?.toString();
 
-                {fromMe ? (
-                    <p className="flex-end">{message.text}</p>
-                ) : (
-                    <p className="flex-start">{message.text}</p>
-                )}
+  const profilePic = fromMe
+    ? authUser?.profilePic
+    : selectedConversation?.profilePic;
 
-            </div>
+  return (
+    <div
+      className={`flex items-end gap-2 ${
+        fromMe
+          ? "justify-end"
+          : "justify-start"
+      }`}
+    >
+      {!fromMe && (
+        <img
+          className="w-8 h-8 rounded-full object-cover"
+          src={
+            profilePic ||
+            "/avatar.jpg"
+          }
+          alt="profile"
+        />
+      )}
 
-            <img 
-                className="message-img" 
-                src={profilePic || "/avatar.jpg"} 
-                alt="profile" 
+      <div
+        className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm break-words ${
+          fromMe
+            ? "bg-blue-600 text-white rounded-br-sm"
+            : "bg-gray-800 text-gray-100 rounded-bl-sm"
+        }`}
+      >
+        {message.text && (
+          <p>{message.text}</p>
+        )}
+
+        {message.image && (
+          <img
+            src={message.image}
+            className="rounded-xl mt-2 max-w-full"
+          />
+        )}
+
+        {message.video && (
+          <video
+            controls
+            className="rounded-xl mt-2 max-w-full"
+          >
+            <source
+              src={message.video}
             />
-        </div>
-    )
+          </video>
+        )}
+
+        {message.audio && (
+          <audio
+            controls
+            className="mt-2 w-full"
+          >
+            <source
+              src={message.audio}
+            />
+          </audio>
+        )}
+      </div>
+
+      {fromMe && (
+        <img
+          className="w-8 h-8 rounded-full object-cover"
+          src={
+            profilePic ||
+            "/avatar.jpg"
+          }
+          alt="profile"
+        />
+      )}
+    </div>
+  );
 }
 
 export default Text;

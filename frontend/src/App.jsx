@@ -12,7 +12,7 @@ import { Toaster } from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
 import { TailSpin } from "react-loader-spinner"; 
 import MobileNavbar from "./components/MobileNavBar/MobileNavBar";
-import MobileSearch from "./components/MobileSearch/MobileSearch";
+import MobileSearch from "./components/Mobilesearch/MobileSearch";
 
 
 

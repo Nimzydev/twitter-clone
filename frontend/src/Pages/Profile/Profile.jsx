@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { IoArrowBackOutline } from "react-icons/io5";
 import { CiEdit } from "react-icons/ci";
-import { IoMdClose } from "react-icons/io";
-import { ImCancelCircle } from "react-icons/im";
 import Posts from "../../components/Post/Posts";
 import { useNavigate, useParams } from "react-router-dom";
 import Editmodal from "../../components/Editmodal/Editmodal";
@@ -10,12 +8,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TailSpin } from "react-loader-spinner";
 import useUpdateProfileUser from "../../hooks/useUpdateUser";
 import { useFollow } from "../../hooks/useFollow";
+import FollowListModal from "../../components/FollowListModal/FollowListModal";
 
 function Profile() {
   const [coverImg, setCoverImg] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [postType, setPostType] = useState("Tweets");
   const [isOpen, setIsOpen] = useState(false);
+
+  // ✅ NEW STATES
+  const [followModalOpen, setFollowModalOpen] = useState(false);
+  const [followModalTitle, setFollowModalTitle] = useState("");
+  const [followUsers, setFollowUsers] = useState([]);
 
   const coverImgRef = useRef(null);
   const imgRef = useRef(null);
@@ -27,36 +31,91 @@ function Profile() {
   const queryClient = useQueryClient();
   const authUser = queryClient.getQueryData(["authUser"]);
 
-  const { data: user, isLoading, isFetching, refetch } = useQuery({
+  const {
+    data: user,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ["user", username],
     queryFn: async () => {
       const res = await fetch(`/api/user/profile/${username}`);
       const data = await res.json();
+
       if (!res.ok) throw new Error(data.error);
+
       return data;
     },
   });
 
-  const { updateProfile, isUpdatingProfile } = useUpdateProfileUser();
+  const { updateProfile, isUpdatingProfile } =
+    useUpdateProfileUser();
 
   const isMyProfile = authUser?._id === user?._id;
   const amIFollowing = authUser?.following?.includes(user?._id);
 
   const handleChange = (e, type) => {
     const file = e.target.files[0];
+
     if (!file) return;
 
     const reader = new FileReader();
+
     reader.onload = () => {
       if (type === "cover") setCoverImg(reader.result);
       if (type === "profile") setProfilePic(reader.result);
     };
+
     reader.readAsDataURL(file);
   };
 
   useEffect(() => {
     refetch();
   }, [username]);
+
+  // ✅ OPEN FOLLOWERS
+  const handleOpenFollowers = async () => {
+    try {
+      const res = await fetch(
+        `/api/user/followers/${user._id}`
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error);
+      }
+
+      setFollowUsers(data);
+      setFollowModalTitle("Followers");
+      setFollowModalOpen(true);
+
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // ✅ OPEN FOLLOWING
+  const handleOpenFollowing = async () => {
+    try {
+      const res = await fetch(
+        `/api/user/following/${user._id}`
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error);
+      }
+
+      setFollowUsers(data);
+      setFollowModalTitle("Following");
+      setFollowModalOpen(true);
+
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -77,9 +136,15 @@ function Profile() {
               className="cursor-pointer text-xl"
               onClick={() => navigate("/")}
             />
+
             <div>
-              <h1 className="font-bold text-lg">{user.fullname}</h1>
-              <p className="text-sm text-gray-400">Profile</p>
+              <h1 className="font-bold text-lg">
+                {user.fullName}
+              </h1>
+
+              <p className="text-sm text-gray-400">
+                Profile
+              </p>
             </div>
           </div>
 
@@ -96,6 +161,7 @@ function Profile() {
                   className="absolute top-2 right-2 text-white cursor-pointer"
                   onClick={() => coverImgRef.current.click()}
                 />
+
                 <input
                   hidden
                   ref={coverImgRef}
@@ -119,6 +185,7 @@ function Profile() {
                   className="absolute left-24 bottom-2 cursor-pointer text-white"
                   onClick={() => imgRef.current.click()}
                 />
+
                 <input
                   hidden
                   ref={imgRef}
@@ -153,26 +220,58 @@ function Profile() {
             <div className="px-4 mt-2">
               <button
                 onClick={async () => {
-                  await updateProfile({ coverImg, profilePic });
+                  await updateProfile({
+                    coverImg,
+                    profilePic,
+                  });
+
                   setCoverImg(null);
                   setProfilePic(null);
                 }}
                 className="bg-blue-500 px-4 py-2 rounded-full text-white"
               >
-                {isUpdatingProfile ? "Updating..." : "Save changes"}
+                {isUpdatingProfile
+                  ? "Updating..."
+                  : "Save changes"}
               </button>
             </div>
           )}
 
           {/* USER INFO */}
           <div className="px-4 mt-4 space-y-1">
-            <h2 className="font-bold text-lg">{user.fullName}</h2>
-            <p className="text-gray-400">@{user.username}</p>
+            <h2 className="font-bold text-lg">
+              {user.fullName}
+            </h2>
+
+            <p className="text-gray-400">
+              @{user.username}
+            </p>
+
             <p>{user.bio}</p>
 
+            {/* ✅ CLICKABLE FOLLOWERS/FOLLOWING */}
             <div className="flex gap-6 text-sm text-gray-400 mt-2">
-              <span>{user.following?.length} Following</span>
-              <span>{user.followers?.length} Followers</span>
+
+              <button
+                onClick={handleOpenFollowing}
+                className="hover:text-white transition"
+              >
+                <span className="font-semibold text-white">
+                  {user.following?.length}
+                </span>{" "}
+                Following
+              </button>
+
+              <button
+                onClick={handleOpenFollowers}
+                className="hover:text-white transition"
+              >
+                <span className="font-semibold text-white">
+                  {user.followers?.length}
+                </span>{" "}
+                Followers
+              </button>
+
             </div>
           </div>
 
@@ -205,6 +304,14 @@ function Profile() {
             authUser={authUser}
             isOpen={isOpen}
             setIsOpen={setIsOpen}
+          />
+
+          {/* ✅ FOLLOW LIST MODAL */}
+          <FollowListModal
+            isOpen={followModalOpen}
+            setIsOpen={setFollowModalOpen}
+            title={followModalTitle}
+            users={followUsers}
           />
         </>
       )}

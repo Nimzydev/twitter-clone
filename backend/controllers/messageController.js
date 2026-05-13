@@ -1,233 +1,404 @@
 import Message from "../models/messageModel.js";
-import Conversation from "../models/conversationModel.js";
-import User from "../models/userModel.js";
-import { getReceiverId, io } from "../socket/socket.js";
 
-// ✅ SEND MESSAGE
-export const sendMessage = async (req, res) => {
+import Conversation from "../models/conversationModel.js";
+
+import User from "../models/userModel.js";
+
+import {
+  getReceiverId,
+  io,
+} from "../socket/socket.js";
+
+import { v2 as cloudinary } from "cloudinary";
+
+export const sendMessage = async (
+  req,
+  res
+) => {
   try {
-    const { text } = req.body; // ✅ must be "text"
-    const { id: receiverId } = req.params;
+    const { text } = req.body;
+
+    const { id: receiverId } =
+      req.params;
+
     const senderId = req.user._id;
 
-    const sender = await User.findById(senderId);
-    const receiver = await User.findById(receiverId);
+    let conversation =
+      await Conversation.findOne({
+        participants: {
+          $all: [senderId, receiverId],
+        },
+      });
 
-    if (!sender) {
-      return res.status(404).json({ error: "Sender not found!" });
+    if (
+      conversation &&
+      conversation.deletedFor.includes(
+        senderId
+      )
+    ) {
+      conversation.deletedFor.pull(
+        senderId
+      );
+
+      await conversation.save();
     }
-
-    if (!receiver) {
-      return res.status(404).json({ error: "Receiver not found!" });
-    }
-
-    // ✅ find or create conversation
-    let conversation = await Conversation.findOne({
-      participants: { $all: [senderId, receiverId] },
-    });
 
     if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [senderId, receiverId],
+      conversation =
+        await Conversation.create({
+          participants: [
+            senderId,
+            receiverId,
+          ],
+        });
+    }
+
+    let image = "";
+    let video = "";
+    let audio = "";
+
+    if (req.file) {
+      const base64 =
+        `data:${req.file.mimetype};base64,` +
+        req.file.buffer.toString(
+          "base64"
+        );
+
+      const uploaded =
+        await cloudinary.uploader.upload(
+          base64,
+          {
+            resource_type: "auto",
+          }
+        );
+
+      if (
+        req.file.mimetype.startsWith(
+          "image"
+        )
+      ) {
+        image = uploaded.secure_url;
+      }
+
+      if (
+        req.file.mimetype.startsWith(
+          "video"
+        )
+      ) {
+        video = uploaded.secure_url;
+      }
+
+      if (
+        req.file.mimetype.startsWith(
+          "audio"
+        )
+      ) {
+        audio = uploaded.secure_url;
+      }
+    }
+
+    const newMessage =
+      await Message.create({
+        sender: senderId,
+
+        receiver: receiverId,
+
+        text,
+
+        image,
+
+        video,
+
+        audio,
       });
-    }
 
-    // ✅ create message
-    const newMessage = new Message({
-      sender: senderId,
-      receiver: receiverId,
-      text: text,
-    });
+    conversation.messages.push(
+      newMessage._id
+    );
 
-    if (newMessage) {
-      conversation.messages.push(newMessage._id);
-    }
+    await conversation.save();
 
-    await Promise.all([conversation.save(), newMessage.save()]);
-
-    // ✅ SOCKET REAL-TIME
-    const receiverSocketId = getReceiverId(receiverId);
+    const receiverSocketId =
+      getReceiverId(receiverId);
 
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", {
-        _id: newMessage._id,
-        sender: newMessage.sender,
-        receiver: newMessage.receiver,
-        text: newMessage.text,
-        createdAt: newMessage.createdAt,
-      });
+      io.to(receiverSocketId).emit(
+        "newMessage",
+        newMessage
+      );
     }
 
-    // ✅ CLEAN RESPONSE (IMPORTANT FIX)
-    return res.status(200).json({
-      _id: newMessage._id,
-      sender: newMessage.sender,
-      receiver: newMessage.receiver,
-      text: newMessage.text,
-      createdAt: newMessage.createdAt,
-    });
-
+    return res.status(201).json(
+      newMessage
+    );
   } catch (error) {
-    console.log("Error in SendMessage controller", error);
-    return res.status(500).json({ error: "Internal server error!" });
+    console.log(
+      "sendMessage error:",
+      error
+    );
+
+    return res.status(500).json({
+      error: "Internal server error",
+    });
   }
 };
 
-
-// ✅ GET MESSAGES
-export const getMessages = async (req, res) => {
+export const getMessages = async (
+  req,
+  res
+) => {
   try {
     const senderId = req.user._id;
+
     const receiverId = req.params.id;
 
-    const sender = await User.findById(senderId);
-    const receiver = await User.findById(receiverId);
+    const conversation =
+      await Conversation.findOne({
+        participants: {
+          $all: [senderId, receiverId],
+        },
 
-    if (!sender) {
-      return res.status(404).json({ error: "Sender not found!" });
-    }
+        deletedFor: {
+          $ne: senderId,
+        },
+      }).populate({
+        path: "messages",
 
-    if (!receiver) {
-      return res.status(404).json({ error: "Receiver not found!" });
-    }
+        match: {
+          deletedFor: {
+            $ne: senderId,
+          },
+        },
 
-    const conversation = await Conversation.findOne({
-      participants: { $all: [senderId, receiverId] },
-    }).populate("messages");
-
-    if (!conversation) return res.status(200).json([]);
-
-    return res.status(200).json(conversation.messages);
-
-  } catch (error) {
-    console.log("Error in GetMessages controller", error.message);
-    return res.status(500).json({ error: "Internal server error!" });
-  }
-};
-
-
-// ✅ GET CONVERSATIONS
-export const getConversations = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    const conversations = await Conversation.find({
-      participants: userId,
-    })
-      .populate({
-        path: "participants",
-        select: "fullName username profilePic",
-      })
-      .populate("messages");
-
-    if (!conversations) {
-      return res.status(404).json({ error: "No conversations found!" });
-    }
-
-    // ✅ remove current user from participants
-    conversations.forEach((conversation) => {
-      conversation.participants = conversation.participants.filter(
-        (participant) => participant._id.toString() !== userId.toString()
-      );
-    });
-
-    return res.status(200).json(conversations);
-
-  } catch (error) {
-    console.log("Error in GetConversations controller", error);
-    return res.status(500).json({ error: "Internal server error!" });
-  }
-};
-
-
-// ✅ DELETE SINGLE MESSAGE
-export const deleteMessage = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { messageId } = req.params;
-
-    const message = await Message.findById(messageId);
-
-    if (!message) {
-      return res.status(404).json({ error: "Message not found" });
-    }
-
-    if (message.sender.toString() !== userId.toString()) {
-      return res.status(403).json({ error: "Not authorized" });
-    }
-
-    await Conversation.updateOne(
-      { messages: messageId },
-      { $pull: { messages: messageId } }
-    );
-
-    await Message.findByIdAndDelete(messageId);
-
-    return res.status(200).json({ message: "Message deleted" });
-
-  } catch (error) {
-    console.log("Delete message error:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-
-// ✅ DELETE CONVERSATION
-export const deleteConversation = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { id: conversationId } = req.params;
-
-    const conversation = await Conversation.findById(conversationId);
+        options: {
+          sort: {
+            createdAt: 1,
+          },
+        },
+      });
 
     if (!conversation) {
-      return res.status(404).json({ error: "Conversation not found" });
+      return res.status(200).json([]);
     }
 
-    if (!conversation.participants.includes(userId)) {
-      return res.status(403).json({ error: "Not authorized" });
-    }
-
-    await Message.deleteMany({
-      _id: { $in: conversation.messages },
-    });
-
-    await Conversation.findByIdAndDelete(conversationId);
-
-    return res.status(200).json({
-  success: true,
-  message: "Conversation deleted",
-});
-
+    return res
+      .status(200)
+      .json(conversation.messages);
   } catch (error) {
-    console.log("Delete conversation error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    console.log(error);
+
+    return res.status(500).json({
+      error: "Internal server error",
+    });
   }
 };
 
-export const markMessagesAsRead = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { id: senderId } = req.params;
+export const getConversations =
+  async (req, res) => {
+    try {
+      const userId = req.user._id;
 
-    const updated = await Message.updateMany(
-      {
-        sender: senderId,
-        receiver: userId,
-        read: false,
-      },
-      {
-        $set: { read: true },
+      const conversations =
+        await Conversation.find({
+          participants: userId,
+
+          deletedFor: {
+            $ne: userId,
+          },
+        })
+          .populate({
+            path: "participants",
+
+            select:
+              "fullName username profilePic",
+          })
+
+          .populate({
+            path: "messages",
+
+            options: {
+              sort: {
+                createdAt: 1,
+              },
+            },
+          })
+
+          .sort({
+            updatedAt: -1,
+          });
+
+      const formatted =
+        conversations.map(
+          (conversation) => {
+            const otherUser =
+              conversation.participants.find(
+                (participant) =>
+                  participant._id.toString() !==
+                  userId.toString()
+              );
+
+            const lastMessage =
+              conversation.messages[
+                conversation.messages
+                  .length - 1
+              ];
+
+            return {
+              ...otherUser.toObject(),
+
+              lastMessage:
+                lastMessage?.text ||
+                (lastMessage?.image &&
+                  "📷 Photo") ||
+                (lastMessage?.video &&
+                  "🎥 Video") ||
+                (lastMessage?.audio &&
+                  "🎤 Voice message") ||
+                "",
+            };
+          }
+        );
+
+      return res
+        .status(200)
+        .json(formatted);
+    } catch (error) {
+      console.log(error);
+
+      return res.status(500).json({
+        error: "Internal server error",
+      });
+    }
+  };
+
+export const deleteMessage =
+  async (req, res) => {
+    try {
+      const userId = req.user._id;
+
+      const { messageId } =
+        req.params;
+
+      const message =
+        await Message.findById(
+          messageId
+        );
+
+      if (!message) {
+        return res.status(404).json({
+          error: "Message not found",
+        });
       }
-    );
 
-    return res.status(200).json({
-      success: true,
-      updatedCount: updated.modifiedCount,
-    });
+      if (
+        message.sender.toString() !==
+        userId.toString()
+      ) {
+        return res.status(403).json({
+          error: "Not authorized",
+        });
+      }
 
-  } catch (error) {
-    console.log("Error marking messages as read", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-};
+      if (
+        !message.deletedFor.includes(
+          userId
+        )
+      ) {
+        message.deletedFor.push(userId);
+      }
+
+      await message.save();
+
+      return res.status(200).json({
+        success: true,
+      });
+    } catch (error) {
+      console.log(error);
+
+      return res.status(500).json({
+        error: "Internal server error",
+      });
+    }
+  };
+
+export const deleteConversation =
+  async (req, res) => {
+    try {
+      const userId = req.user._id;
+
+      const receiverId =
+        req.params.id;
+
+      const conversation =
+        await Conversation.findOne({
+          participants: {
+            $all: [userId, receiverId],
+          },
+        });
+
+      if (!conversation) {
+        return res.status(404).json({
+          error:
+            "Conversation not found",
+        });
+      }
+
+      if (
+        !conversation.deletedFor.includes(
+          userId
+        )
+      ) {
+        conversation.deletedFor.push(
+          userId
+        );
+      }
+
+      await conversation.save();
+
+      return res.status(200).json({
+        success: true,
+      });
+    } catch (error) {
+      console.log(error);
+
+      return res.status(500).json({
+        error: "Internal server error",
+      });
+    }
+  };
+
+export const markMessagesAsRead =
+  async (req, res) => {
+    try {
+      const userId = req.user._id;
+
+      const { id: senderId } =
+        req.params;
+
+      await Message.updateMany(
+        {
+          sender: senderId,
+
+          receiver: userId,
+
+          read: false,
+        },
+
+        {
+          $set: {
+            read: true,
+          },
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+      });
+    } catch (error) {
+      console.log(error);
+
+      return res.status(500).json({
+        error: "Internal server error",
+      });
+    }
+  };

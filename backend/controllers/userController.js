@@ -43,8 +43,6 @@ export const followUnFollow = async (req,res) => {
             return res.status(200).json({message: "You have followed successfully"});
         }
 
-        
-        
     } catch (error) {
         console.log("Error in FollowUnFollow controller", error);
         return res.status(500).json({error: "Internal server error"});
@@ -101,15 +99,12 @@ export const updateUser = async (req,res) => {
     let {profilePic} = req.body;
     let {coverImg} = req.body;
 
-    
-
     try {
         const user = await User.findById(req.user._id);
+
         if (!user) {
             return res.status(404).json({error: "no user found"})
         }
-
-        
 
         if (!currentPassword && newPassword) {
             return res.status(400).json({error: "please provide current passord and new password"});
@@ -117,6 +112,7 @@ export const updateUser = async (req,res) => {
 
         if (currentPassword && newPassword) {
             const isPasswordCorrect = await bcrypt.compare(currentPassword, user.password);
+
             if (!isPasswordCorrect) {
                 return res.status(400).json({error: "current password is incorrect!"});
             }
@@ -129,6 +125,7 @@ export const updateUser = async (req,res) => {
             if (user.profilePic) {
                 await cloudinary.uploader.destroy(user.profilePic.split("/").pop().split(".")[0]);
             }
+
             const upLoadedPic = await cloudinary.uploader.upload(profilePic);
             profilePic = upLoadedPic.secure_url;
         }
@@ -155,13 +152,10 @@ export const updateUser = async (req,res) => {
 
         return res.status(200).json(user);
 
-        
     } catch (error) {
         console.log("Error in UpdateUser controller", error);
         return res.status(500).json({error: "Internal server error!"});
     }
-
-
 }
 
 export const getUserProfile = async (req,res) => {
@@ -180,7 +174,6 @@ export const getUserProfile = async (req,res) => {
     } catch (error) {
         console.log("Error in GetUserProfile controller", error);
         return res.status(500).json({error: "Internal server error!"});
-        
     }
 }
 
@@ -207,12 +200,9 @@ export const removeDeletedUser = async (req,res) => {
 
         return res.status(200).json({message: "removed deleted users successfully!"});
 
-
-        
     } catch (error) { 
         console.log("Error in RemoveDeletedUser", error)
         return res.status(500).json({error: "Internal server error"})
-        
     }
 }
 
@@ -231,15 +221,61 @@ export const getFollowingUsers = async (req,res) => {
 
         return res.status(200).json(followingUsers);
 
-
-        
     } catch (error) {
         console.log("Error in GetFollowingUsers controller", error);
         return res.status(500).json({error:"Internal server error"})
     }
-
 }
 
+// ✅ GET USER FOLLOWERS
+export const getUserFollowers = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id)
+            .populate("followers", "fullName username profilePic bio");
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+            });
+        }
+
+        return res.status(200).json(user.followers);
+
+    } catch (error) {
+        console.log("Error in getUserFollowers", error);
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
+
+// ✅ GET USER FOLLOWING
+export const getUserFollowing = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id)
+            .populate("following", "fullName username profilePic bio");
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+            });
+        }
+
+        return res.status(200).json(user.following);
+
+    } catch (error) {
+        console.log("Error in getUserFollowing", error);
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
 
 export const searchUsers = async (req, res) => {
     try {
@@ -257,10 +293,12 @@ export const searchUsers = async (req, res) => {
         }).select("-password");
 
         return res.status(200).json(users);
+
     } catch (error) {
         console.log("Error in searchUsers controller", error);
-        return res.status(500).json({ error: "Internal server error" });
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
     }
 };
-
-
