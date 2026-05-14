@@ -59,7 +59,7 @@ function Post({ post }) {
     navigate(`/profile/${username}`);
   };
 
-  // ✅ OPTIMISTIC UPDATE
+  // ================= OPTIMISTIC UPDATE =================
   const updatePostInCache = (
     updater
   ) => {
@@ -97,6 +97,7 @@ function Post({ post }) {
     );
   };
 
+  // ================= DELETE POST =================
   const {
     mutate: deletePost,
     isPending: isDeleting,
@@ -124,6 +125,7 @@ function Post({ post }) {
     },
   });
 
+  // ================= LIKE POST =================
   const { mutate: likePost } =
     useMutation({
       mutationFn: async () => {
@@ -161,6 +163,7 @@ function Post({ post }) {
       },
     });
 
+  // ================= RETWEET =================
   const { mutate: retweetPost } =
     useMutation({
       mutationFn: async () => {
@@ -201,6 +204,7 @@ function Post({ post }) {
       },
     });
 
+  // ================= COMMENT POST =================
   const {
     mutate: commentPost,
     isPending: isCommenting,
@@ -253,6 +257,7 @@ function Post({ post }) {
     },
   });
 
+  // ================= DELETE COMMENT =================
   const {
     mutate: deleteComment,
     isPending: isDeletingComment,
@@ -304,6 +309,7 @@ function Post({ post }) {
       id={`post-${post._id}`}
       className="border-b border-gray-800 p-3"
     >
+      {/* HEADER */}
       <div className="flex items-center gap-2">
         <img
           onClick={(e) =>
@@ -361,6 +367,7 @@ function Post({ post }) {
         )}
       </div>
 
+      {/* CONTENT */}
       <div className="mt-2 text-sm text-white">
         {post.text}
 
@@ -372,7 +379,9 @@ function Post({ post }) {
         )}
       </div>
 
+      {/* ACTIONS */}
       <div className="flex gap-6 mt-3 text-gray-400 text-sm">
+
         <div
           onClick={() =>
             setOpenComments(!openComments)
@@ -415,24 +424,28 @@ function Post({ post }) {
             <FaRegHeart />
           )}
 
-          <span>{post.likes.length}</span>
+          <span>
+            {post.likes.length}
+          </span>
         </div>
       </div>
 
+      {/* COMMENTS */}
       {openComments && (
         <div className="mt-4 border-t border-gray-800 pt-3 space-y-3">
+
           <h2 className="text-sm text-gray-400">
             Comments
           </h2>
 
-          {post?.comment?.length ===
-            0 && (
+          {post?.comment?.length === 0 && (
             <p className="text-gray-500 text-sm">
               No comments yet...
             </p>
           )}
 
           <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+
             {post?.comment?.map(
               (comment) => (
                 <div
@@ -456,7 +469,9 @@ function Post({ post }) {
                   />
 
                   <div className="flex-1 bg-zinc-900 p-2 rounded-xl">
+
                     <div className="flex items-center justify-between">
+
                       <span
                         onClick={(e) =>
                           goToProfile(
@@ -505,6 +520,7 @@ function Post({ post }) {
             )}
           </div>
 
+          {/* COMMENT INPUT */}
           <form
             onSubmit={
               handleCommentPost

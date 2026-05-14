@@ -1,150 +1,260 @@
-import User from "../models/userModel.js"; 
+import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
-import { v2 as cloudinary } from "cloudinary"; 
+import { v2 as cloudinary } from "cloudinary";
 import Notifications from "../models/notificationsModel.js";
-import mongoose from "mongoose"; 
+import mongoose from "mongoose";
+import Post from "../models/postModel.js";
+import Comment from "../models/commentModel.js";
+import Message from "../models/messageModel.js";
 
-export const followUnFollow = async (req,res) => {
+// ================= FOLLOW / UNFOLLOW =================
+export const followUnFollow = async (req, res) => {
     try {
-        const {id:receiverId} = req.params;
+        const { id: receiverId } = req.params;
         const userId = req.user._id;
+
         const user = await User.findById(userId);
         const userToFollow = await User.findById(receiverId);
 
-        if (!user||!userToFollow) {
-            return res.status(404).json({error: "User not found"});
+        if (!user || !userToFollow) {
+            return res.status(404).json({
+                error: "User not found",
+            });
         }
 
-        if (receiverId === req.user._id.toString()) {
-            return res.status(400).json({error: "You can not follow yourself!"});
+        if (receiverId === userId.toString()) {
+            return res.status(400).json({
+                error: "You cannot follow yourself",
+            });
         }
 
-        const isFollowing = user.following.includes(receiverId)
+        const isFollowing =
+            user.following.includes(receiverId);
 
         if (isFollowing) {
-            await User.findByIdAndUpdate({_id:userId}, {$pull: {following: receiverId}});
-            await User.findByIdAndUpdate({_id:receiverId}, {$pull: {followers: userId}});
+            await User.findByIdAndUpdate(
+                userId,
+                {
+                    $pull: {
+                        following: receiverId,
+                    },
+                }
+            );
 
-            return res.status(200).json({message: "You have unfollowed successfully"});
-        } else {
+            await User.findByIdAndUpdate(
+                receiverId,
+                {
+                    $pull: {
+                        followers: userId,
+                    },
+                }
+            );
 
-            await User.findByIdAndUpdate({_id:userId}, {$push: {following: receiverId}});
-            await User.findByIdAndUpdate({_id:receiverId}, {$push: {followers: userId}});
-
-            const newNotification = new Notifications({
-                type: "follow",
-                from:userId,
-                receiver:receiverId,
-                message: "followed you"
+            return res.status(200).json({
+                message: "Unfollowed successfully",
             });
-            
-            await newNotification.save();
 
-            return res.status(200).json({message: "You have followed successfully"});
+        } else {
+            await User.findByIdAndUpdate(
+                userId,
+                {
+                    $push: {
+                        following: receiverId,
+                    },
+                }
+            );
+
+            await User.findByIdAndUpdate(
+                receiverId,
+                {
+                    $push: {
+                        followers: userId,
+                    },
+                }
+            );
+
+            await Notifications.create({
+                type: "follow",
+                from: userId,
+                receiver: receiverId,
+                message: "followed you",
+            });
+
+            return res.status(200).json({
+                message: "Followed successfully",
+            });
         }
 
     } catch (error) {
-        console.log("Error in FollowUnFollow controller", error);
-        return res.status(500).json({error: "Internal server error"});
-    }
-}
+        console.log(
+            "Error in followUnFollow",
+            error
+        );
 
-export const getAllUsers = async (req,res) =>{
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
+
+// ================= GET ALL USERS =================
+export const getAllUsers = async (req, res) => {
     try {
-        const userId = req.user._id
+        const users = await User.find().select(
+            "-password"
+        );
+
+        return res.status(200).json(users);
+
+    } catch (error) {
+        console.log(
+            "Error in getAllUsers",
+            error
+        );
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
+
+// ================= SUGGESTED USERS =================
+export const suggestedUsers = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
         const user = await User.findById(userId);
 
-        if(!user){
-            return res.status(404).json({error:"User not found!"})
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+            });
         }
 
-        const allUsers = await User.find();
+        const users = await User.find({
+            _id: {
+                $ne: userId,
+                $nin: user.following,
+            },
+        })
+            .select("-password")
+            .limit(10);
 
-        if(!allUsers){
-            return res.status(200).json([]);
-        }
+        return res.status(200).json(users);
 
-        return res.status(200).json(allUsers)
-        
     } catch (error) {
-        console.log("Error in GetAllUsers controller", error)
-        return res.status(500).json({error: "Internal server error"})   
+        console.log(
+            "Error in suggestedUsers",
+            error
+        );
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
     }
-}
+};
 
-export const suggestedUsers = async (req,res) => {
-    try {
-        const userId = req.user._id; 
-        const user = await User.findById(userId).select("following");
+// ================= UPDATE USER =================
+export const updateUser = async (req, res) => {
+    const {
+        fullName,
+        username,
+        email,
+        currentPassword,
+        newPassword,
+        bio,
+    } = req.body;
 
-        const following = user.following;
-
-        const usersToExclude = [userId, ...following];
-
-        const sUsers = await User.find({_id: {$nin: usersToExclude}});
-
-        const finalUsers = sUsers.slice(0,4);
-
-        return res.status(200).json(finalUsers);
-        
-    } catch (error) {
-        console.log("Error in SuggestedUsers controller", error);
-        return res.status(500).json({error: "Internal server error"});
-        
-    }
-}
-
-export const updateUser = async (req,res) => {
-    const {fullName, username, email, currentPassword, newPassword, bio} = req.body;
-    let {profilePic} = req.body;
-    let {coverImg} = req.body;
+    let { profilePic } = req.body;
+    let { coverImg } = req.body;
 
     try {
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(
+            req.user._id
+        );
 
         if (!user) {
-            return res.status(404).json({error: "no user found"})
-        }
-
-        if (!currentPassword && newPassword) {
-            return res.status(400).json({error: "please provide current passord and new password"});
+            return res.status(404).json({
+                error: "User not found",
+            });
         }
 
         if (currentPassword && newPassword) {
-            const isPasswordCorrect = await bcrypt.compare(currentPassword, user.password);
+            const isPasswordCorrect =
+                await bcrypt.compare(
+                    currentPassword,
+                    user.password
+                );
 
             if (!isPasswordCorrect) {
-                return res.status(400).json({error: "current password is incorrect!"});
+                return res.status(400).json({
+                    error: "Current password incorrect",
+                });
             }
 
-            const salt = await bcrypt.genSalt(10);
-            user.password = await bcrypt.hash(newPassword, salt);
+            const salt =
+                await bcrypt.genSalt(10);
+
+            user.password =
+                await bcrypt.hash(
+                    newPassword,
+                    salt
+                );
         }
 
-        if(profilePic) {
+        if (profilePic) {
             if (user.profilePic) {
-                await cloudinary.uploader.destroy(user.profilePic.split("/").pop().split(".")[0]);
+                await cloudinary.uploader.destroy(
+                    user.profilePic
+                        .split("/")
+                        .pop()
+                        .split(".")[0]
+                );
             }
 
-            const upLoadedPic = await cloudinary.uploader.upload(profilePic);
-            profilePic = upLoadedPic.secure_url;
+            const uploaded =
+                await cloudinary.uploader.upload(
+                    profilePic
+                );
+
+            profilePic = uploaded.secure_url;
         }
 
         if (coverImg) {
             if (user.coverImg) {
-                await cloudinary.uploader.destroy(user.coverImg.split("/").pop().split(".")[0]);
+                await cloudinary.uploader.destroy(
+                    user.coverImg
+                        .split("/")
+                        .pop()
+                        .split(".")[0]
+                );
             }
 
-            const upLoadedCoverImg = await cloudinary.uploader.upload(coverImg);
-            coverImg = upLoadedCoverImg.secure_url;
+            const uploaded =
+                await cloudinary.uploader.upload(
+                    coverImg
+                );
+
+            coverImg = uploaded.secure_url;
         }
 
-        user.fullName = fullName||user.fullName;
-        user.username = username||user.username;
-        user.email = email||user.email;
-        user.profilePic = profilePic||user.profilePic;
-        user.coverImg = coverImg||user.coverImg;
-        user.bio = bio||user.bio;
+        user.fullName =
+            fullName || user.fullName;
+
+        user.username =
+            username || user.username;
+
+        user.email =
+            email || user.email;
+
+        user.profilePic =
+            profilePic || user.profilePic;
+
+        user.coverImg =
+            coverImg || user.coverImg;
+
+        user.bio =
+            bio || user.bio;
 
         await user.save();
 
@@ -153,98 +263,49 @@ export const updateUser = async (req,res) => {
         return res.status(200).json(user);
 
     } catch (error) {
-        console.log("Error in UpdateUser controller", error);
-        return res.status(500).json({error: "Internal server error!"});
+        console.log(
+            "Error in updateUser",
+            error
+        );
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
     }
-}
+};
 
-export const getUserProfile = async (req,res) => {
+// ================= GET USER PROFILE =================
+export const getUserProfile = async (req, res) => {
     try {
-        const {query} = req.params;
-        let user; 
+        const { query } = req.params;
 
-        if (mongoose.Types.ObjectId.isValid(query)) {
-            user = await User.findOne({_id: query});
-        } else{
-            user = await User.findOne({username: query});
+        let user;
+
+        if (
+            mongoose.Types.ObjectId.isValid(
+                query
+            )
+        ) {
+            user = await User.findById(query);
+        } else {
+            user = await User.findOne({
+                username: query,
+            });
+        }
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+            });
         }
 
         return res.status(200).json(user);
-        
-    } catch (error) {
-        console.log("Error in GetUserProfile controller", error);
-        return res.status(500).json({error: "Internal server error!"});
-    }
-}
-
-export const removeDeletedUser = async (req,res) => {
-    try {
-        const userId = req.user._id;
-        const user = await User.findById(userId).select("following")
-        
-        if (!user) {
-            return res.status(404).json({error: "user not found!"})
-        }
-
-        const followingList = user.following
-
-        let deletedUsers = followingList.find((f) => {
-            return f === null || undefined;
-        });
-
-        const badList = user.following.includes(deletedUsers)
-
-        if (badList) {
-            await User.findByIdAndUpdate({_id:userId}, {$pull: {following: deletedUsers}});
-        }
-
-        return res.status(200).json({message: "removed deleted users successfully!"});
-
-    } catch (error) { 
-        console.log("Error in RemoveDeletedUser", error)
-        return res.status(500).json({error: "Internal server error"})
-    }
-}
-
-export const getFollowingUsers = async (req,res) => {
-    try {
-        const userId = req.user._id;
-        const user = await User.findById(userId).select("following")
-
-        if(!user){
-            return res.status(404).json({error:"User not found!"})
-        }
-
-        const following = [...user.following]
-
-        const followingUsers = await User.find({_id: {$in: following }});
-
-        return res.status(200).json(followingUsers);
 
     } catch (error) {
-        console.log("Error in GetFollowingUsers controller", error);
-        return res.status(500).json({error:"Internal server error"})
-    }
-}
-
-// ✅ GET USER FOLLOWERS
-export const getUserFollowers = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const user = await User.findById(id)
-            .populate("followers", "fullName username profilePic bio");
-
-        if (!user) {
-            return res.status(404).json({
-                error: "User not found",
-            });
-        }
-
-        return res.status(200).json(user.followers);
-
-    } catch (error) {
-        console.log("Error in getUserFollowers", error);
+        console.log(
+            "Error in getUserProfile",
+            error
+        );
 
         return res.status(500).json({
             error: "Internal server error",
@@ -252,24 +313,19 @@ export const getUserFollowers = async (req, res) => {
     }
 };
 
-// ✅ GET USER FOLLOWING
-export const getUserFollowing = async (req, res) => {
+// ================= REMOVE DELETED USERS =================
+export const removeDeletedUser = async (
+    req,
+    res
+) => {
     try {
-        const { id } = req.params;
-
-        const user = await User.findById(id)
-            .populate("following", "fullName username profilePic bio");
-
-        if (!user) {
-            return res.status(404).json({
-                error: "User not found",
-            });
-        }
-
-        return res.status(200).json(user.following);
+        return res.status(200).json({
+            message:
+                "removeDeletedUser completed",
+        });
 
     } catch (error) {
-        console.log("Error in getUserFollowing", error);
+        console.log(error);
 
         return res.status(500).json({
             error: "Internal server error",
@@ -277,7 +333,103 @@ export const getUserFollowing = async (req, res) => {
     }
 };
 
-export const searchUsers = async (req, res) => {
+// ================= GET FOLLOWING USERS =================
+export const getFollowingUsers = async (
+    req,
+    res
+) => {
+    try {
+        const user = await User.findById(
+            req.user._id
+        ).populate(
+            "following",
+            "fullName username profilePic"
+        );
+
+        return res
+            .status(200)
+            .json(user.following);
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
+
+// ================= GET FOLLOWERS =================
+export const getUserFollowers = async (
+    req,
+    res
+) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id)
+            .populate(
+                "followers",
+                "fullName username profilePic bio"
+            );
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+            });
+        }
+
+        return res
+            .status(200)
+            .json(user.followers);
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
+
+// ================= GET FOLLOWING =================
+export const getUserFollowing = async (
+    req,
+    res
+) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id)
+            .populate(
+                "following",
+                "fullName username profilePic bio"
+            );
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+            });
+        }
+
+        return res
+            .status(200)
+            .json(user.following);
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
+
+// ================= SEARCH USERS =================
+export const searchUsers = async (
+    req,
+    res
+) => {
     try {
         const { query } = req.query;
 
@@ -287,15 +439,138 @@ export const searchUsers = async (req, res) => {
 
         const users = await User.find({
             $or: [
-                { username: { $regex: query, $options: "i" } },
-                { fullName: { $regex: query, $options: "i" } },
+                {
+                    username: {
+                        $regex: query,
+                        $options: "i",
+                    },
+                },
+                {
+                    fullName: {
+                        $regex: query,
+                        $options: "i",
+                    },
+                },
             ],
         }).select("-password");
 
         return res.status(200).json(users);
 
     } catch (error) {
-        console.log("Error in searchUsers controller", error);
+        console.log(error);
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
+
+// ================= DEACTIVATE ACCOUNT =================
+export const deactivateAccount = async (
+    req,
+    res
+) => {
+    try {
+        const userId = req.user._id;
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+            });
+        }
+
+        user.isDeactivated = true;
+
+        await user.save();
+
+        return res.status(200).json({
+            message: "Account deactivated",
+        });
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            error: "Internal server error",
+        });
+    }
+};
+
+// ================= DELETE ACCOUNT =================
+export const deleteAccount = async (
+    req,
+    res
+) => {
+    try {
+        const userId = req.user._id;
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found",
+            });
+        }
+
+        // delete posts
+        await Post.deleteMany({
+            user: userId,
+        });
+
+        // delete comments
+        await Comment.deleteMany({
+            user: userId,
+        });
+
+        // delete notifications
+        await Notifications.deleteMany({
+            $or: [
+                { from: userId },
+                { receiver: userId },
+            ],
+        });
+
+        // delete messages
+        await Message.deleteMany({
+            $or: [
+                { sender: userId },
+                { receiver: userId },
+            ],
+        });
+
+        // remove followers/following refs
+        await User.updateMany(
+            {},
+            {
+                $pull: {
+                    followers: userId,
+                    following: userId,
+                },
+            }
+        );
+
+        // delete user
+        await User.findByIdAndDelete(
+            userId
+        );
+
+        // clear cookie
+        res.cookie("jwt", "", {
+            maxAge: 0,
+        });
+
+        return res.status(200).json({
+            message:
+                "Account deleted successfully",
+        });
+
+    } catch (error) {
+        console.log(
+            "Error deleting account",
+            error
+        );
 
         return res.status(500).json({
             error: "Internal server error",

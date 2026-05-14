@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import useGetConversation from "../../../zustand/useGetConversations.js";
+import { useSocketContext } from "../../context/SocketContext";
 
 function Messagepanel({ chatUsers }) {
   const [search, setSearch] = useState("");
@@ -11,18 +12,26 @@ function Messagepanel({ chatUsers }) {
     setUnreadCounts,
   } = useGetConversation();
 
+  const { onlineUsers } = useSocketContext();
+
   const filteredUsers = chatUsers?.filter((user) =>
     user.fullName.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleSelectConversation = (user) => {
     setSelectedConversation(user);
-
-    // ✅ FIXED: fully remove unread entry (not just set 0)
     setUnreadCounts((prev) => {
       const updated = { ...prev };
       delete updated[user._id];
       return updated;
+    });
+  };
+
+  const formatTime = (dateStr) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -33,9 +42,7 @@ function Messagepanel({ chatUsers }) {
       }`}
     >
       <div className="p-3 border-b border-gray-800">
-        <h2 className="text-lg font-semibold text-white">
-          Messages
-        </h2>
+        <h2 className="text-lg font-semibold text-white">Messages</h2>
 
         <input
           type="text"
@@ -47,41 +54,64 @@ function Messagepanel({ chatUsers }) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {filteredUsers?.map((user) => (
-          <div
-            key={user._id}
-            onClick={() => handleSelectConversation(user)}
-            className={`flex items-center justify-between gap-3 p-3 cursor-pointer hover:bg-gray-900 transition ${
-              selectedConversation?._id === user._id
-                ? "bg-gray-800"
-                : ""
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <img
-                src={user.profilePic || "/avatar.jpg"}
-                className="w-10 h-10 rounded-full object-cover"
-              />
+        {filteredUsers?.map((user) => {
+          const isOnline = onlineUsers.includes(user._id);
+          const unread = unreadCounts?.[user._id] || 0;
+          const lastText =
+            user.lastMessage?.text ||
+            (user.lastMessage?.image && "📷 Photo") ||
+            (user.lastMessage?.video && "🎥 Video") ||
+            (user.lastMessage?.audio && "🎤 Voice message") ||
+            "";
+          const time = formatTime(user.lastMessage?.createdAt);
 
-              <div>
-                <p className="text-white font-medium">
-                  {user.fullName}
-                </p>
+          return (
+            <div
+              key={user._id}
+              onClick={() => handleSelectConversation(user)}
+              className={`flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-gray-900 transition ${
+                selectedConversation?._id === user._id ? "bg-gray-800" : ""
+              }`}
+            >
+              {/* AVATAR with online dot */}
+              <div className="relative flex-shrink-0">
+                <img
+                  src={user.profilePic || "/avatar.jpg"}
+                  className="w-11 h-11 rounded-full object-cover"
+                  alt="avatar"
+                />
+                {isOnline && (
+                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border border-black" />
+                )}
+              </div>
 
-                <p className="text-gray-400 text-sm">
-                  @{user.username}
+              {/* NAME + LAST MESSAGE */}
+              <div className="flex flex-col flex-1 min-w-0">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-semibold text-white truncate">
+                    {user.fullName}
+                  </p>
+                  {time && (
+                    <span className="text-[11px] text-gray-400 ml-2 whitespace-nowrap">
+                      {time}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-gray-400 truncate">
+                  {lastText || <span className="italic">No messages yet</span>}
                 </p>
               </div>
+
+              {/* UNREAD BADGE */}
+              {unread > 0 && (
+                <div className="min-w-[22px] h-[22px] rounded-full bg-red-500 flex items-center justify-center text-xs text-white font-bold px-1 flex-shrink-0">
+                  {unread}
+                </div>
+              )}
             </div>
-
-            {/* ✅ UNREAD BADGE FIXED */}
-            {unreadCounts?.[user._id] > 0 && (
-              <div className="min-w-[22px] h-[22px] rounded-full bg-red-500 flex items-center justify-center text-xs text-white font-bold px-1">
-                {unreadCounts[user._id]}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -1,65 +1,68 @@
 import React from "react";
-import useGetConversation from "../../../zustand/useGetConversations.js";
-import { useSocketContext } from "../../context/SocketContext.jsx";
+import useGetConversation from "../../../zustand/useGetConversations";
+import { useSocketContext } from "../../context/SocketContext";
 
 function Messageusers({ chatUser }) {
   const {
     selectedConversation,
     setSelectedConversation,
     unreadCounts,
-    messages,
   } = useGetConversation();
 
   const { onlineUsers } = useSocketContext();
 
-  const isSelected =
-    selectedConversation?._id === chatUser?._id;
-
   const isOnline = onlineUsers.includes(chatUser._id);
 
-  // ✅ LAST MESSAGE FIX (REAL PREVIEW)
-  const lastMessage = Array.isArray(messages)
-    ? [...messages]
-        .filter(
-          (m) =>
-            m.sender === chatUser._id ||
-            m.receiver === chatUser._id
-        )
-        .slice(-1)[0]
-    : null;
+  const lastMessageText =
+    chatUser.lastMessage?.text || "No messages yet";
+
+  const time = chatUser.lastMessage?.createdAt
+    ? new Date(chatUser.lastMessage.createdAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
+  const unread = unreadCounts?.[chatUser._id] || 0;
 
   return (
     <div
       onClick={() => setSelectedConversation(chatUser)}
-      className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-900 transition ${
-        isSelected ? "bg-gray-800" : ""
-      }`}
+      className="flex items-center gap-3 px-3 py-3 hover:bg-gray-900 cursor-pointer"
     >
+      {/* AVATAR */}
       <div className="relative">
         <img
-          src={chatUser?.profilePic || "/avatar.jpg"}
-          className="w-10 h-10 rounded-full object-cover"
+          src={chatUser.profilePic || "/avatar.jpg"}
+          className="w-11 h-11 rounded-full object-cover"
         />
 
         {isOnline && (
-          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-black" />
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border border-black" />
         )}
       </div>
 
-      <div className="flex flex-col flex-1">
-        <h1 className="text-sm font-semibold">
-          {chatUser?.fullName}
-        </h1>
+      {/* MIDDLE */}
+      <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex justify-between items-center">
+          <p className="text-sm font-semibold truncate">
+            {chatUser.fullName}
+          </p>
+
+          <span className="text-[11px] text-gray-400 ml-2 whitespace-nowrap">
+            {time}
+          </span>
+        </div>
 
         <p className="text-xs text-gray-400 truncate">
-          {lastMessage?.text || "No messages yet"}
+          {lastMessageText}
         </p>
       </div>
 
-      {/* UNREAD */}
-      {unreadCounts?.[chatUser._id] > 0 && (
-        <div className="min-w-[20px] h-[20px] bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold">
-          {unreadCounts[chatUser._id]}
+      {/* UNREAD BADGE */}
+      {unread > 0 && (
+        <div className="bg-green-500 text-xs min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-white px-1">
+          {unread}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
-import { generateTokenAndSetCookie } from "../utils/generateToken.js"; 
+import { generateTokenAndSetCookie } from "../utils/generateToken.js";
 
 export const getMe = async (req, res) => {
     try {
@@ -15,28 +15,30 @@ export const getMe = async (req, res) => {
         }
 
         return res.status(200).json(user);
+
     } catch (error) {
-        console.log("Error in GetMe controller", error);
+        console.log(error);
         return res.status(500).json({ error: "Internal server error" });
     }
 };
 
-export const signUp = async (req,res) => {
+// ================= SIGNUP =================
+export const signUp = async (req, res) => {
     try {
-        const {fullName, username, email, password} = req.body;
+        const { fullName, username, email, password } = req.body;
 
-        if (!fullName||!username||!email||!password||fullName ===""||username ===""||email ===""||password ==="") {
-            return res.status(400).json({error: "Please provide all fields"});
+        if (!fullName || !username || !email || !password) {
+            return res.status(400).json({ error: "Please provide all fields" });
         }
 
-        const existingUsername = await User.findOne({username});
+        const existingUsername = await User.findOne({ username });
         if (existingUsername) {
-            return res.status(400).json({error: "username already exists!"});
+            return res.status(400).json({ error: "Username already exists" });
         }
 
-        const existingEmail = await User.findOne({email});
+        const existingEmail = await User.findOne({ email });
         if (existingEmail) {
-            return res.status(400).json({error: "email already exists!"});
+            return res.status(400).json({ error: "Email already exists" });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -46,81 +48,67 @@ export const signUp = async (req,res) => {
             fullName,
             username,
             email,
-            password:hashedPassword,
+            password: hashedPassword,
         });
 
-        if (newUser) {
-            generateTokenAndSetCookie(newUser._id,res);
-            await newUser.save();
-            
-            return res.status(201).json({
-                _id: newUser._id,
-                fullName: newUser.fullName,
-                email: newUser.email,
-                profilePic: newUser.profilePic,
-                followers: newUser.followers,
-                following: newUser.following,
-                bio: newUser.bio,
-                likedPosts: newUser.likedPosts,
-                retweetPosts: newUser.retweetPosts,
-            });
+        await newUser.save();
 
-        }
- 
+        generateTokenAndSetCookie(newUser._id, res);
+
+        return res.status(201).json(newUser);
+
     } catch (error) {
-        console.log("Error in SignUp controller", error)
-        return res.status(500).json({error: "Internal server error!"});
+        console.log(error);
+        return res.status(500).json({ error: "Internal server error" });
     }
-}
+};
 
-export const login = async (req,res) => {
+// ================= LOGIN (UPDATED 🔥) =================
+export const login = async (req, res) => {
     try {
-        const {username, password} = req.body;
+        const { username, password } = req.body;
 
-        if (!username||!password||username ===""||password ==="") {
-            return res.status(400).json({error: "Please enter all fields"});
+        if (!username || !password) {
+            return res.status(400).json({ error: "Please enter all fields" });
         }
 
-        const validUser = await User.findOne({username})
-        if (!validUser) {
-            return res.status(404).json({error: "Username not found!"});
+        const user = await User.findOne({ username });
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
         }
 
-        const isPasswordCorrect = await bcrypt.compare(password, validUser?.password|| "");
-
-        if ((!validUser && isPasswordCorrect) || (!isPasswordCorrect && validUser)) {
-            return res.status(400).json({error: "Username or password is incorrect!"});
-        }
-
-    
-        generateTokenAndSetCookie(validUser._id,res)
-
-        return res.status(200).json({
-                _id: validUser._id,
-                fullName: validUser.fullName,
-                email: validUser.email,
-                profilePic: validUser.profilePic,
-                followers: validUser.followers,
-                following: validUser.following,
-                bio: validUser.bio,
-                likedPosts: validUser.likedPosts,
-                retweetPosts: validUser.retweetPosts,
+        // 🔥 BLOCK SUSPENDED USERS
+        if (user.isSuspended) {
+            return res.status(403).json({
+                error: "Your account has been suspended"
             });
-        
-    } catch (error) {
-        console.log("Error in Login controller", error)
-        return res.status(500).json({error: "Internal server error!"})
-    }
-}
+        }
 
-export const logout = async (req,res) => {
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
+            return res.status(400).json({ error: "Invalid credentials" });
+        }
+
+        generateTokenAndSetCookie(user._id, res);
+
+        return res.status(200).json(user);
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+// ================= LOGOUT =================
+export const logout = async (req, res) => {
     try {
-        res.cookie("jwt", "", {maxAge:0});
-        return res.status(200).json({message: "You have logged out successfully"});
-        
-    } catch (error) {
-        console.log("Error in Logout controller", error)
-        return res.status(500).json({error: "Internal server error!"})
-    }
-}
+        res.cookie("jwt", "", { maxAge: 0 });
 
+        return res.status(200).json({ message: "Logged out" });
+
+    } catch (error) {
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};

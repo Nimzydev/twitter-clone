@@ -1,64 +1,81 @@
-import mongoose from "mongoose"; 
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-    fullName:{
+    fullName: {
         type: String,
         required: true,
     },
-    username:{
+    username: {
+        type: String,
+        required: true,
+        unique: true,
+    },
+    email: {
         type: String,
         required: true,
         unique: true,
     },
-    email:{
-        type: String,
-        required: true,
-        unique: true,
-    }, 
-    password:{
+    password: {
         type: String,
         required: true,
     },
-    profilePic:{
+
+    profilePic: {
         type: String,
         default: "",
     },
-    coverImg:{
+    coverImg: {
         type: String,
         default: "",
     },
-    followers:[
+
+    followers: [
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            default: []
-        }
+            default: [],
+        },
     ],
-    following:[
+
+    following: [
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            default: []
-        }
+            default: [],
+        },
     ],
-    bio:{
+
+    bio: {
         type: String,
         default: "",
     },
-    likedPosts:[
+
+    likedPosts: [
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Post",
-            default: []
-        }
+            default: [],
+        },
     ],
-    retweetPosts:[
+
+    retweetPosts: [
         {
-            type:mongoose.Schema.Types.ObjectId,
+            type: mongoose.Schema.Types.ObjectId,
             ref: "Post",
-            default: []
-        }
+            default: [],
+        },
     ],
+
+    // 🔥 NEW FEATURE: ACCOUNT STATUS
+    isDeactivated: {
+        type: Boolean,
+        default: false,
+    },
+
+    isSuspended: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const User = mongoose.model("User", userSchema);

@@ -193,83 +193,54 @@ export const getMessages = async (
   }
 };
 
-export const getConversations =
-  async (req, res) => {
-    try {
-      const userId = req.user._id;
+export const getConversations = async (req, res) => {
+  try {
+    const userId = req.user._id;
 
-      const conversations =
-        await Conversation.find({
-          participants: userId,
+    const conversations = await Conversation.find({
+      participants: userId,
+      deletedFor: { $ne: userId },
+    })
+      .populate({
+        path: "participants",
+        select: "fullName username profilePic",
+      })
+      .populate({
+        path: "messages",
+        options: { sort: { createdAt: 1 } },
+      })
+      .sort({ updatedAt: -1 });
 
-          deletedFor: {
-            $ne: userId,
-          },
-        })
-          .populate({
-            path: "participants",
+    const formatted = conversations.map((conversation) => {
+      const otherUser = conversation.participants.find(
+        (p) => p._id.toString() !== userId.toString()
+      );
 
-            select:
-              "fullName username profilePic",
-          })
+      const lastMessage =
+        conversation.messages?.[conversation.messages.length - 1];
 
-          .populate({
-            path: "messages",
+      return {
+        ...otherUser.toObject(),
 
-            options: {
-              sort: {
-                createdAt: 1,
-              },
-            },
-          })
+        lastMessage: {
+          text:
+            lastMessage?.text ||
+            (lastMessage?.image && "📷 Photo") ||
+            (lastMessage?.video && "🎥 Video") ||
+            (lastMessage?.audio && "🎤 Voice message") ||
+            "",
 
-          .sort({
-            updatedAt: -1,
-          });
+          createdAt: lastMessage?.createdAt || null,
+        },
+      };
+    });
 
-      const formatted =
-        conversations.map(
-          (conversation) => {
-            const otherUser =
-              conversation.participants.find(
-                (participant) =>
-                  participant._id.toString() !==
-                  userId.toString()
-              );
-
-            const lastMessage =
-              conversation.messages[
-                conversation.messages
-                  .length - 1
-              ];
-
-            return {
-              ...otherUser.toObject(),
-
-              lastMessage:
-                lastMessage?.text ||
-                (lastMessage?.image &&
-                  "📷 Photo") ||
-                (lastMessage?.video &&
-                  "🎥 Video") ||
-                (lastMessage?.audio &&
-                  "🎤 Voice message") ||
-                "",
-            };
-          }
-        );
-
-      return res
-        .status(200)
-        .json(formatted);
-    } catch (error) {
-      console.log(error);
-
-      return res.status(500).json({
-        error: "Internal server error",
-      });
-    }
-  };
+    return res.status(200).json(formatted);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 export const deleteMessage =
   async (req, res) => {
