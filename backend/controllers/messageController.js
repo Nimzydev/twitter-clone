@@ -1,195 +1,109 @@
 import Message from "../models/messageModel.js";
-
 import Conversation from "../models/conversationModel.js";
-
-import User from "../models/userModel.js";
-
-import {
-  getReceiverId,
-  io,
-} from "../socket/socket.js";
-
 import { v2 as cloudinary } from "cloudinary";
+import { getReceiverId, io, getUserSocketMap } from "../socket/socket.js";
 
-export const sendMessage = async (
-  req,
-  res
-) => {
+export const sendMessage = async (req, res) => {
   try {
-    const { text } = req.body;
-
-    const { id: receiverId } =
-      req.params;
-
+    const { id: receiverIdParam } = req.params;
     const senderId = req.user._id;
+    const { text } = req.body;
+    const file = req.file;
 
-    let conversation =
-      await Conversation.findOne({
-        participants: {
-          $all: [senderId, receiverId],
-        },
+    const receiverId = String(receiverIdParam).trim();
+    const senderIdStr = String(senderId).trim();
+
+    console.log(`\n📤 ===== SEND MESSAGE =====`);
+    console.log(`   Sender:   ${senderIdStr}`);
+    console.log(`   Receiver: ${receiverId}`);
+
+    let imageUrl = "", videoUrl = "", audioUrl = "";
+
+    if (file) {
+      const base64 = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+      const cloudRes = await cloudinary.uploader.upload(base64, {
+        folder: "chat-files",
       });
-
-    if (
-      conversation &&
-      conversation.deletedFor.includes(
-        senderId
-      )
-    ) {
-      conversation.deletedFor.pull(
-        senderId
-      );
-
-      await conversation.save();
+      if (file.mimetype.startsWith("image")) imageUrl = cloudRes.secure_url;
+      else if (file.mimetype.startsWith("video")) videoUrl = cloudRes.secure_url;
+      else if (file.mimetype.startsWith("audio")) audioUrl = cloudRes.secure_url;
     }
+
+    let conversation = await Conversation.findOne({
+      participants: { $all: [senderId, receiverId] },
+    });
 
     if (!conversation) {
-      conversation =
-        await Conversation.create({
-          participants: [
-            senderId,
-            receiverId,
-          ],
-        });
-    }
-
-    let image = "";
-    let video = "";
-    let audio = "";
-
-    if (req.file) {
-      const base64 =
-        `data:${req.file.mimetype};base64,` +
-        req.file.buffer.toString(
-          "base64"
-        );
-
-      const uploaded =
-        await cloudinary.uploader.upload(
-          base64,
-          {
-            resource_type: "auto",
-          }
-        );
-
-      if (
-        req.file.mimetype.startsWith(
-          "image"
-        )
-      ) {
-        image = uploaded.secure_url;
-      }
-
-      if (
-        req.file.mimetype.startsWith(
-          "video"
-        )
-      ) {
-        video = uploaded.secure_url;
-      }
-
-      if (
-        req.file.mimetype.startsWith(
-          "audio"
-        )
-      ) {
-        audio = uploaded.secure_url;
-      }
-    }
-
-    const newMessage =
-      await Message.create({
-        sender: senderId,
-
-        receiver: receiverId,
-
-        text,
-
-        image,
-
-        video,
-
-        audio,
+      conversation = await Conversation.create({
+        participants: [senderId, receiverId],
       });
+    }
 
-    conversation.messages.push(
-      newMessage._id
-    );
+    const newMessage = new Message({
+      sender: senderId,
+      receiver: receiverId,
+      text: text || "",
+      image: imageUrl,
+      video: videoUrl,
+      audio: audioUrl,
+    });
 
-    await conversation.save();
+    conversation.messages.push(newMessage._id);
+    await Promise.all([conversation.save(), newMessage.save()]);
 
-    const receiverSocketId =
-      getReceiverId(receiverId);
+    // Plain string payload — no Mongoose ObjectIds
+    const payload = {
+      _id: String(newMessage._id),
+      sender: senderIdStr,
+      receiver: receiverId,
+      text: newMessage.text,
+      image: newMessage.image,
+      video: newMessage.video,
+      audio: newMessage.audio,
+      read: newMessage.read,
+      createdAt: newMessage.createdAt,
+      updatedAt: newMessage.updatedAt,
+    };
+
+    // Log the full socket map so we can see who is online
+    const socketMap = getUserSocketMap();
+    console.log(`   Socket map:`, socketMap);
+
+    const receiverSocketId = getReceiverId(receiverId);
+    console.log(`   Receiver socket ID: ${receiverSocketId || "NOT FOUND — receiver offline"}`);
 
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit(
-        "newMessage",
-        newMessage
-      );
+      io.to(receiverSocketId).emit("newMessage", payload);
+      console.log(`   ✅ Emitted newMessage to receiver socket: ${receiverSocketId}`);
+    } else {
+      console.warn(`   ⚠️  Receiver NOT in socket map. Message saved to DB only.`);
     }
 
-    return res.status(201).json(
-      newMessage
-    );
-  } catch (error) {
-    console.log(
-      "sendMessage error:",
-      error
-    );
+    console.log(`   Payload:`, payload);
+    console.log(`===========================\n`);
 
-    return res.status(500).json({
-      error: "Internal server error",
-    });
+    res.status(201).json(payload);
+  } catch (error) {
+    console.log("❌ sendMessage error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-export const getMessages = async (
-  req,
-  res
-) => {
+export const getMessages = async (req, res) => {
   try {
+    const { id: userToChatId } = req.params;
     const senderId = req.user._id;
 
-    const receiverId = req.params.id;
+    const conversation = await Conversation.findOne({
+      participants: { $all: [senderId, userToChatId] },
+    }).populate("messages");
 
-    const conversation =
-      await Conversation.findOne({
-        participants: {
-          $all: [senderId, receiverId],
-        },
+    if (!conversation) return res.status(200).json([]);
 
-        deletedFor: {
-          $ne: senderId,
-        },
-      }).populate({
-        path: "messages",
-
-        match: {
-          deletedFor: {
-            $ne: senderId,
-          },
-        },
-
-        options: {
-          sort: {
-            createdAt: 1,
-          },
-        },
-      });
-
-    if (!conversation) {
-      return res.status(200).json([]);
-    }
-
-    return res
-      .status(200)
-      .json(conversation.messages);
+    res.status(200).json(conversation.messages);
   } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      error: "Internal server error",
-    });
+    console.log("Error in getMessages controller", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -199,177 +113,85 @@ export const getConversations = async (req, res) => {
 
     const conversations = await Conversation.find({
       participants: userId,
-      deletedFor: { $ne: userId },
-    })
-      .populate({
-        path: "participants",
-        select: "fullName username profilePic",
-      })
-      .populate({
-        path: "messages",
-        options: { sort: { createdAt: 1 } },
-      })
-      .sort({ updatedAt: -1 });
+    }).populate("participants", "fullName username profilePic");
 
-    const formatted = conversations.map((conversation) => {
-      const otherUser = conversation.participants.find(
+    const chatUsers = [];
+
+    for (const conv of conversations) {
+      const otherUser = conv.participants.find(
         (p) => p._id.toString() !== userId.toString()
       );
 
-      const lastMessage =
-        conversation.messages?.[conversation.messages.length - 1];
+      if (!otherUser) continue;
 
-      return {
-        ...otherUser.toObject(),
+      const lastMessage = await Message.findOne({
+        $or: [
+          { sender: userId, receiver: otherUser._id },
+          { sender: otherUser._id, receiver: userId },
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .select("text createdAt image video audio");
 
-        lastMessage: {
-          text:
-            lastMessage?.text ||
-            (lastMessage?.image && "📷 Photo") ||
-            (lastMessage?.video && "🎥 Video") ||
-            (lastMessage?.audio && "🎤 Voice message") ||
-            "",
+      chatUsers.push({
+        _id: otherUser._id,
+        fullName: otherUser.fullName,
+        username: otherUser.username,
+        profilePic: otherUser.profilePic,
+        lastMessage: lastMessage
+          ? {
+              text: lastMessage.text,
+              image: lastMessage.image,
+              video: lastMessage.video,
+              audio: lastMessage.audio,
+              createdAt: lastMessage.createdAt,
+            }
+          : null,
+      });
+    }
 
-          createdAt: lastMessage?.createdAt || null,
-        },
-      };
-    });
-
-    return res.status(200).json(formatted);
+    res.status(200).json(chatUsers);
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ error: "Internal server error" });
+    console.log("Error in getConversations controller", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-export const deleteMessage =
-  async (req, res) => {
-    try {
-      const userId = req.user._id;
+export const markMessagesAsRead = async (req, res) => {
+  try {
+    const { id: receiverId } = req.params;
+    const senderId = req.user._id;
 
-      const { messageId } =
-        req.params;
+    await Message.updateMany(
+      { sender: receiverId, receiver: senderId, read: false },
+      { $set: { read: true } }
+    );
 
-      const message =
-        await Message.findById(
-          messageId
-        );
+    res.status(200).json({ message: "Messages marked as read" });
+  } catch (error) {
+    console.log("Error in markMessagesAsRead controller", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
-      if (!message) {
-        return res.status(404).json({
-          error: "Message not found",
-        });
-      }
+export const deleteConversation = async (req, res) => {
+  try {
+    const { id: conversationId } = req.params;
+    await Conversation.findByIdAndDelete(conversationId);
+    res.status(200).json({ message: "Conversation deleted" });
+  } catch (error) {
+    console.log("Error in deleteConversation controller", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
-      if (
-        message.sender.toString() !==
-        userId.toString()
-      ) {
-        return res.status(403).json({
-          error: "Not authorized",
-        });
-      }
-
-      if (
-        !message.deletedFor.includes(
-          userId
-        )
-      ) {
-        message.deletedFor.push(userId);
-      }
-
-      await message.save();
-
-      return res.status(200).json({
-        success: true,
-      });
-    } catch (error) {
-      console.log(error);
-
-      return res.status(500).json({
-        error: "Internal server error",
-      });
-    }
-  };
-
-export const deleteConversation =
-  async (req, res) => {
-    try {
-      const userId = req.user._id;
-
-      const receiverId =
-        req.params.id;
-
-      const conversation =
-        await Conversation.findOne({
-          participants: {
-            $all: [userId, receiverId],
-          },
-        });
-
-      if (!conversation) {
-        return res.status(404).json({
-          error:
-            "Conversation not found",
-        });
-      }
-
-      if (
-        !conversation.deletedFor.includes(
-          userId
-        )
-      ) {
-        conversation.deletedFor.push(
-          userId
-        );
-      }
-
-      await conversation.save();
-
-      return res.status(200).json({
-        success: true,
-      });
-    } catch (error) {
-      console.log(error);
-
-      return res.status(500).json({
-        error: "Internal server error",
-      });
-    }
-  };
-
-export const markMessagesAsRead =
-  async (req, res) => {
-    try {
-      const userId = req.user._id;
-
-      const { id: senderId } =
-        req.params;
-
-      await Message.updateMany(
-        {
-          sender: senderId,
-
-          receiver: userId,
-
-          read: false,
-        },
-
-        {
-          $set: {
-            read: true,
-          },
-        }
-      );
-
-      return res.status(200).json({
-        success: true,
-      });
-    } catch (error) {
-      console.log(error);
-
-      return res.status(500).json({
-        error: "Internal server error",
-      });
-    }
-  };
+export const deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    await Message.findByIdAndDelete(messageId);
+    res.status(200).json({ message: "Message deleted" });
+  } catch (error) {
+    console.log("Error in deleteMessage controller", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

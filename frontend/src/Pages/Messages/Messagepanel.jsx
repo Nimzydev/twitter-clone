@@ -10,6 +10,7 @@ function Messagepanel({ chatUsers }) {
     setSelectedConversation,
     unreadCounts,
     setUnreadCounts,
+    lastMessages,
   } = useGetConversation();
 
   const { onlineUsers } = useSocketContext();
@@ -20,6 +21,7 @@ function Messagepanel({ chatUsers }) {
 
   const handleSelectConversation = (user) => {
     setSelectedConversation(user);
+    // Only clear unread when the user explicitly opens the conversation
     setUnreadCounts((prev) => {
       const updated = { ...prev };
       delete updated[user._id];
@@ -43,7 +45,6 @@ function Messagepanel({ chatUsers }) {
     >
       <div className="p-3 border-b border-gray-800">
         <h2 className="text-lg font-semibold text-white">Messages</h2>
-
         <input
           type="text"
           placeholder="Search followers..."
@@ -57,13 +58,20 @@ function Messagepanel({ chatUsers }) {
         {filteredUsers?.map((user) => {
           const isOnline = onlineUsers.includes(user._id);
           const unread = unreadCounts?.[user._id] || 0;
+
+          // Real-time Zustand value takes priority over server data
+          const realtimeLast = lastMessages?.[user._id];
+          const serverLast = user.lastMessage;
+          const activeLast = realtimeLast || serverLast;
+
           const lastText =
-            user.lastMessage?.text ||
-            (user.lastMessage?.image && "📷 Photo") ||
-            (user.lastMessage?.video && "🎥 Video") ||
-            (user.lastMessage?.audio && "🎤 Voice message") ||
+            activeLast?.text ||
+            (activeLast?.image && "📷 Photo") ||
+            (activeLast?.video && "🎥 Video") ||
+            (activeLast?.audio && "🎤 Voice message") ||
             "";
-          const time = formatTime(user.lastMessage?.createdAt);
+
+          const time = formatTime(activeLast?.createdAt);
 
           return (
             <div
@@ -73,7 +81,7 @@ function Messagepanel({ chatUsers }) {
                 selectedConversation?._id === user._id ? "bg-gray-800" : ""
               }`}
             >
-              {/* AVATAR with online dot */}
+              {/* AVATAR */}
               <div className="relative flex-shrink-0">
                 <img
                   src={user.profilePic || "/avatar.jpg"}
@@ -97,9 +105,10 @@ function Messagepanel({ chatUsers }) {
                     </span>
                   )}
                 </div>
-
                 <p className="text-xs text-gray-400 truncate">
-                  {lastText || <span className="italic">No messages yet</span>}
+                  {lastText || (
+                    <span className="italic">No messages yet</span>
+                  )}
                 </p>
               </div>
 

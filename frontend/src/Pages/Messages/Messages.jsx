@@ -6,7 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import { TailSpin } from "react-loader-spinner";
 
 function Messages() {
-  // All users you follow (for starting new conversations)
   const { data: followingUsers, isLoading: loadingFollowing } = useQuery({
     queryKey: ["chatUsers"],
     queryFn: async () => {
@@ -17,7 +16,6 @@ function Messages() {
     },
   });
 
-  // Existing conversations with last message data
   const { data: conversations, isLoading: loadingConversations } = useQuery({
     queryKey: ["conversations"],
     queryFn: async () => {
@@ -30,8 +28,6 @@ function Messages() {
 
   const isLoading = loadingFollowing || loadingConversations;
 
-  // Merge: start with conversation users (they have lastMessage),
-  // then append any following users who don't have a conversation yet
   const mergedUsers = React.useMemo(() => {
     if (!followingUsers) return [];
 
@@ -44,7 +40,6 @@ function Messages() {
 
     return followingUsers.map((user) => {
       if (convMap[user._id]) {
-        // Enrich with lastMessage and createdAt from conversation
         return {
           ...user,
           lastMessage: convMap[user._id].lastMessage || null,
@@ -56,9 +51,7 @@ function Messages() {
 
   return (
     <div className="flex flex-col md:flex-row h-screen">
-      {isLoading && (
-        <TailSpin width={50} height={40} color="gold" />
-      )}
+      {isLoading && <TailSpin width={50} height={40} color="gold" />}
 
       {!isLoading && (
         <>

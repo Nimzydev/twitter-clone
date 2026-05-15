@@ -2,7 +2,6 @@ import React, { useRef, useState } from "react";
 import { IoSend } from "react-icons/io5";
 import { FaImage, FaMicrophone, FaStop, FaVideo } from "react-icons/fa";
 import { IoMdClose } from "react-icons/io";
-import { useSocketContext } from "../../context/SocketContext";
 import useGetConversation from "../../../zustand/useGetConversations";
 
 function Textinput() {
@@ -16,7 +15,6 @@ function Textinput() {
   const imageInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
-  const { socket } = useSocketContext();
   const { selectedConversation, setMessages } = useGetConversation();
 
   // IMAGE SELECT
@@ -59,8 +57,12 @@ function Textinput() {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const audioFile = new File([audioBlob], "voice-note.webm", { type: "audio/webm" });
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        const audioFile = new File([audioBlob], "voice-note.webm", {
+          type: "audio/webm",
+        });
         setMedia(audioFile);
         setMediaPreview(URL.createObjectURL(audioBlob));
         stream.getTracks().forEach((track) => track.stop());
@@ -82,6 +84,10 @@ function Textinput() {
   };
 
   // SEND MESSAGE
+  // NOTE: We do NOT emit socket events here.
+  // The server's sendMessage controller already emits "newMessage"
+  // directly to the receiver via io.to(receiverSocketId).emit(...)
+  // Emitting again from the client would cause double-counting.
   const handleSendMessage = async () => {
     if (!message.trim() && !media) return;
 
@@ -90,21 +96,19 @@ function Textinput() {
       formData.append("text", message);
       if (media) formData.append("file", media);
 
-      const res = await fetch(`/api/message/send/${selectedConversation._id}`, {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(
+        `/api/message/send/${selectedConversation._id}`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      // Update sender's own chat UI instantly
       setMessages((prev) => [...(prev || []), data]);
-
-      socket?.emit("sendMessage", {
-        senderId: data.sender,
-        receiverId: selectedConversation._id,
-        message: data,
-      });
 
       // RESET
       setMessage("");
@@ -123,7 +127,6 @@ function Textinput() {
       {/* MEDIA PREVIEW */}
       {mediaPreview && (
         <div className="mb-3 relative inline-block">
-
           {/* X CANCEL BUTTON */}
           <button
             onClick={handleCancelMedia}

@@ -18,9 +18,6 @@ export const protectRoute = async (req,res,next) => {
         return res.status(404).json({error: "Authenticated user not found!"});
     }
 
-    console.log("COOKIE:", req.cookies);
-console.log("TOKEN:", req.cookies.jwt);
-
     req.user = user;
     next();
         

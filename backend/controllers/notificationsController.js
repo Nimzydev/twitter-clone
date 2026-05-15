@@ -20,8 +20,6 @@ export const getNotifications = async (req,res) => {
             select: "profilePic",
         })
 
-        console.log("HERE ARE THE NOTIFS",allNotifications)
-
         return res.status(200).json(allNotifications);
         
     } catch (error) {
