@@ -1,15 +1,20 @@
 import { Server } from "socket.io";
 import http from "http";
 import express from "express";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 const userSocketMap = {};
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: CLIENT_URL,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -19,12 +24,9 @@ const io = new Server(server, {
 
 export const getReceiverId = (receiverId) => {
   const key = String(receiverId).trim();
-  const result = userSocketMap[key];
-  console.log(`   getReceiverId("${key}") => ${result || "undefined"}`);
-  return result;
+  return userSocketMap[key];
 };
 
-// Export so controllers can log the full map for debugging
 export const getUserSocketMap = () => ({ ...userSocketMap });
 
 io.on("connection", (socket) => {
@@ -34,10 +36,6 @@ io.on("connection", (socket) => {
 
   if (userId && userId !== "undefined" && userId !== "null") {
     userSocketMap[userId] = socket.id;
-    console.log(`\n🟢 [SOCKET] Connected: userId=${userId} socketId=${socket.id}`);
-    console.log(`   Active map:`, userSocketMap);
-  } else {
-    console.warn("⚠️ [SOCKET] Connection with invalid userId rejected");
   }
 
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
@@ -52,11 +50,9 @@ io.on("connection", (socket) => {
     if (id) io.to(id).emit("stopTyping", { senderId });
   });
 
-  socket.on("disconnect", (reason) => {
+  socket.on("disconnect", () => {
     if (userId) {
       delete userSocketMap[userId];
-      console.log(`\n🔴 [SOCKET] Disconnected: userId=${userId} reason=${reason}`);
-      console.log(`   Active map:`, userSocketMap);
     }
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });

@@ -14,26 +14,20 @@ function Notifications() {
     queryFn: async () => {
       const res = await fetch("/api/notifications/allnotifications");
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error);
       return data;
     },
   });
 
-  // ✅ MARK AS READ ON OPEN
   useEffect(() => {
     const markRead = async () => {
       try {
-        await fetch("/api/notifications/markread", {
-          method: "PUT",
-        });
-
+        await fetch("/api/notifications/markread", { method: "PUT" });
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
       } catch (error) {
         console.error(error);
       }
     };
-
     markRead();
   }, []);
 
@@ -42,7 +36,6 @@ function Notifications() {
       const res = await fetch("/api/notifications/deleteall", {
         method: "DELETE",
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
     },
@@ -53,13 +46,17 @@ function Notifications() {
     onError: (err) => toast.error(err.message),
   });
 
+  // Sort newest first in real time
+  const sortedNotifications = notifications
+    ? [...notifications].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      )
+    : [];
+
   return (
     <div className="w-full max-w-2xl mx-auto">
-
       <div className="flex items-center justify-between p-4 border-b border-gray-800">
-        <h1 className="text-lg font-semibold text-white">
-          Notifications
-        </h1>
+        <h1 className="text-lg font-semibold text-white">Notifications</h1>
 
         <div className="relative">
           <IoSettingsOutline
@@ -67,11 +64,13 @@ function Notifications() {
             className="cursor-pointer text-gray-400 hover:text-white"
             size={20}
           />
-
           {openSettings && (
             <div className="absolute right-0 mt-2 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-10">
               <button
-                onClick={deleteNotifications}
+                onClick={() => {
+                  deleteNotifications();
+                  setOpenSettings(false);
+                }}
                 className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-800 text-red-400"
               >
                 Delete all notifications
@@ -87,16 +86,14 @@ function Notifications() {
         </div>
       )}
 
-      {!isLoading && notifications?.length === 0 && (
+      {!isLoading && sortedNotifications.length === 0 && (
         <div className="flex justify-center py-10">
-          <p className="text-gray-400 text-sm">
-            You have no notifications
-          </p>
+          <p className="text-gray-400 text-sm">You have no notifications</p>
         </div>
       )}
 
       <div className="divide-y divide-gray-800">
-        {notifications?.map((notification) => (
+        {sortedNotifications.map((notification) => (
           <Ncontainer
             key={notification._id}
             notification={notification}

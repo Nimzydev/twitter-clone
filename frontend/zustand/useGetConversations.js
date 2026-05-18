@@ -1,21 +1,18 @@
 import { create } from "zustand";
 
-const loadUnreadCounts = () => {
-  try {
-    const stored = localStorage.getItem("unreadCounts");
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
 const saveUnreadCounts = (counts) => {
   try {
     localStorage.setItem("unreadCounts", JSON.stringify(counts));
   } catch {}
 };
 
-const useGetConversation = create((set) => ({
+export const clearUnreadStorage = () => {
+  try {
+    localStorage.removeItem("unreadCounts");
+  } catch {}
+};
+
+const useGetConversation = create((set, get) => ({
   selectedConversation: null,
   setSelectedConversation: (selectedConversation) =>
     set({ selectedConversation }),
@@ -29,7 +26,7 @@ const useGetConversation = create((set) => ({
           : messages,
     })),
 
-  unreadCounts: loadUnreadCounts(),
+  unreadCounts: {},
   setUnreadCounts: (updater) =>
     set((state) => {
       const next =
@@ -48,6 +45,16 @@ const useGetConversation = create((set) => ({
         [userId]: messageObj,
       },
     })),
+
+  clearAll: () => {
+    clearUnreadStorage();
+    set({
+      selectedConversation: null,
+      messages: [],
+      unreadCounts: {},
+      lastMessages: {},
+    });
+  },
 }));
 
 export default useGetConversation;

@@ -5,14 +5,17 @@ import { IoLogOutOutline } from "react-icons/io5";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import useGetConversation from "../../../zustand/useGetConversations";
+import { disconnectSocket } from "../../socket/socketClient";
 
 function MobileNavbar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const authUser = queryClient.getQueryData(["authUser"]);
 
-  // Read unread badge count purely from Zustand — same source as Sidebar
-  const { unreadCounts } = useGetConversation();
+  // Selector subscription — re-renders when unreadCounts changes
+  const unreadCounts = useGetConversation((state) => state.unreadCounts);
+  const clearAll = useGetConversation((state) => state.clearAll);
+
   const totalUnread = Object.values(unreadCounts || {}).reduce(
     (acc, val) => acc + (typeof val === "number" ? val : 0),
     0
@@ -40,6 +43,8 @@ function MobileNavbar() {
     },
     onSuccess: () => {
       toast.success("Signed out");
+      disconnectSocket();
+      clearAll();
       queryClient.invalidateQueries({ queryKey: ["authUser"] });
     },
     onError: (err) => toast.error(err.message),
@@ -48,13 +53,11 @@ function MobileNavbar() {
   return (
     <div className="fixed bottom-0 left-0 right-0 md:hidden bg-black border-t border-gray-800 flex justify-around items-center py-3 z-50">
 
-      {/* HOME */}
       <FaHome
         className="text-xl cursor-pointer"
         onClick={() => navigate("/")}
       />
 
-      {/* NOTIFICATIONS */}
       <div className="relative">
         <FaBell
           className="text-xl cursor-pointer"
@@ -67,7 +70,6 @@ function MobileNavbar() {
         )}
       </div>
 
-      {/* MESSAGES */}
       <div className="relative">
         <FaEnvelope
           className="text-xl cursor-pointer"
@@ -80,7 +82,6 @@ function MobileNavbar() {
         )}
       </div>
 
-      {/* PROFILE */}
       <div
         className="cursor-pointer flex items-center justify-center"
         onClick={() => {
@@ -99,7 +100,6 @@ function MobileNavbar() {
         )}
       </div>
 
-      {/* LOGOUT */}
       <button
         onClick={logout}
         className="flex items-center justify-center"

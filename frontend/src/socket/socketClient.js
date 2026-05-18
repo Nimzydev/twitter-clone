@@ -1,5 +1,9 @@
 import { io } from "socket.io-client";
 
+// In development: reads VITE_API_URL from frontend .env = http://localhost:5000
+// In production: set VITE_API_URL to your deployed backend URL
+const SERVER_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 let socket = null;
 let myUserId = null;
 let isConnecting = false;
@@ -7,6 +11,7 @@ let isConnecting = false;
 const listeners = {
   onlineUsers: new Set(),
   newMessage: new Set(),
+  newNotification: new Set(),
   typing: new Set(),
   stopTyping: new Set(),
 };
@@ -18,12 +23,10 @@ export const connectSocket = (userId) => {
   const uid = String(userId).trim();
 
   if (socket?.connected && myUserId === uid) {
-    console.log(`[SOCKET] Already connected as ${uid}`);
     return socket;
   }
 
   if (isConnecting) {
-    console.log(`[SOCKET] Already connecting...`);
     return socket;
   }
 
@@ -36,23 +39,20 @@ export const connectSocket = (userId) => {
   isConnecting = true;
   myUserId = uid;
 
-  console.log(`🚀 [SOCKET] Connecting as: ${uid}`);
-
-  socket = io("http://localhost:5000", {
+  socket = io(SERVER_URL, {
     query: { userId: uid },
     transports: ["websocket", "polling"],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
+    withCredentials: true,
   });
 
   socket.on("connect", () => {
     isConnecting = false;
-    console.log(`✅ [SOCKET] Connected: ${socket.id}`);
   });
 
-  socket.on("disconnect", (reason) => {
-    console.log(`🔌 [SOCKET] Disconnected: ${reason}`);
+  socket.on("disconnect", () => {
     isConnecting = false;
   });
 
@@ -61,8 +61,11 @@ export const connectSocket = (userId) => {
   });
 
   socket.on("newMessage", (msg) => {
-    console.log(`\n📨 [SOCKET SINGLETON] newMessage:`, JSON.stringify(msg));
     listeners.newMessage.forEach((cb) => cb(msg));
+  });
+
+  socket.on("newNotification", (data) => {
+    listeners.newNotification.forEach((cb) => cb(data));
   });
 
   socket.on("typing", (data) => {

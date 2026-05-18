@@ -17,7 +17,6 @@ function Textinput() {
 
   const { selectedConversation, setMessages } = useGetConversation();
 
-  // IMAGE SELECT
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -27,16 +26,13 @@ function Textinput() {
     reader.readAsDataURL(file);
   };
 
-  // VIDEO SELECT
   const handleVideoSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setMedia(file);
-    const previewUrl = URL.createObjectURL(file);
-    setMediaPreview(previewUrl);
+    setMediaPreview(URL.createObjectURL(file));
   };
 
-  // CANCEL MEDIA PREVIEW
   const handleCancelMedia = () => {
     setMedia(null);
     setMediaPreview(null);
@@ -44,7 +40,6 @@ function Textinput() {
     if (videoInputRef.current) videoInputRef.current.value = "";
   };
 
-  // START RECORDING
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -75,7 +70,6 @@ function Textinput() {
     }
   };
 
-  // STOP RECORDING
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -83,11 +77,6 @@ function Textinput() {
     }
   };
 
-  // SEND MESSAGE
-  // NOTE: We do NOT emit socket events here.
-  // The server's sendMessage controller already emits "newMessage"
-  // directly to the receiver via io.to(receiverSocketId).emit(...)
-  // Emitting again from the client would cause double-counting.
   const handleSendMessage = async () => {
     if (!message.trim() && !media) return;
 
@@ -98,19 +87,24 @@ function Textinput() {
 
       const res = await fetch(
         `/api/message/send/${selectedConversation._id}`,
-        {
-          method: "POST",
-          body: formData,
-        }
+        { method: "POST", body: formData }
       );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      // Update sender's own chat UI instantly
       setMessages((prev) => [...(prev || []), data]);
 
-      // RESET
+      // Update last message preview instantly for sender
+      const receiverId = String(selectedConversation._id);
+      useGetConversation.getState().setLastMessage(receiverId, {
+        text: data.text || "",
+        image: data.image || "",
+        video: data.video || "",
+        audio: data.audio || "",
+        createdAt: data.createdAt || new Date().toISOString(),
+      });
+
       setMessage("");
       setMedia(null);
       setMediaPreview(null);
@@ -127,7 +121,6 @@ function Textinput() {
       {/* MEDIA PREVIEW */}
       {mediaPreview && (
         <div className="mb-3 relative inline-block">
-          {/* X CANCEL BUTTON */}
           <button
             onClick={handleCancelMedia}
             className="absolute -top-2 -right-2 bg-black/80 hover:bg-black text-white rounded-full p-0.5 z-10"
@@ -136,19 +129,14 @@ function Textinput() {
             <IoMdClose size={16} />
           </button>
 
-          {/* AUDIO */}
           {media?.type?.startsWith("audio") && (
             <audio controls src={mediaPreview} className="w-full" />
           )}
-
-          {/* VIDEO */}
           {media?.type?.startsWith("video") && (
             <video controls className="w-52 rounded-lg">
               <source src={mediaPreview} />
             </video>
           )}
-
-          {/* IMAGE */}
           {media?.type?.startsWith("image") && (
             <img
               src={mediaPreview}
@@ -159,7 +147,69 @@ function Textinput() {
         </div>
       )}
 
+      {/* INPUT ROW */}
       <div className="flex items-center gap-2">
+
+        {/* LEFT SIDE ICONS — image, mic, video */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+
+          {/* IMAGE */}
+          <button
+            type="button"
+            onClick={() => imageInputRef.current.click()}
+            className="text-gray-400 hover:text-white transition cursor-pointer"
+            title="Send image"
+          >
+            <FaImage size={18} />
+          </button>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleImageSelect}
+          />
+
+          {/* MICROPHONE / STOP */}
+          {!isRecording ? (
+            <button
+              type="button"
+              onClick={startRecording}
+              className="text-gray-400 hover:text-white transition cursor-pointer"
+              title="Record voice message"
+            >
+              <FaMicrophone size={18} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={stopRecording}
+              className="text-red-500 animate-pulse cursor-pointer"
+              title="Stop recording"
+            >
+              <FaStop size={18} />
+            </button>
+          )}
+
+          {/* VIDEO */}
+          <button
+            type="button"
+            onClick={() => videoInputRef.current.click()}
+            className="text-gray-400 hover:text-white transition cursor-pointer"
+            title="Send video"
+          >
+            <FaVideo size={18} />
+          </button>
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            hidden
+            onChange={handleVideoSelect}
+          />
+        </div>
+
+        {/* TEXT INPUT — grows to fill remaining space */}
         <input
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -170,64 +220,14 @@ function Textinput() {
             }
           }}
           placeholder="Type a message..."
-          className="flex-1 px-3 py-2 rounded-full bg-gray-900 text-white border border-gray-700 outline-none"
+          className="flex-1 px-3 py-2 rounded-full bg-gray-900 text-white border border-gray-700 outline-none min-w-0"
         />
 
-        {/* IMAGE BUTTON */}
-        <button
-          type="button"
-          onClick={() => imageInputRef.current.click()}
-          className="text-gray-400 hover:text-white transition cursor-pointer"
-        >
-          <FaImage />
-        </button>
-        <input
-          ref={imageInputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={handleImageSelect}
-        />
-
-        {/* MICROPHONE */}
-        {!isRecording ? (
-          <button
-            type="button"
-            onClick={startRecording}
-            className="text-gray-400 hover:text-white transition cursor-pointer"
-          >
-            <FaMicrophone />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={stopRecording}
-            className="text-red-500 animate-pulse cursor-pointer"
-          >
-            <FaStop />
-          </button>
-        )}
-
-        {/* VIDEO BUTTON */}
-        <button
-          type="button"
-          onClick={() => videoInputRef.current.click()}
-          className="text-gray-400 hover:text-white transition cursor-pointer"
-        >
-          <FaVideo />
-        </button>
-        <input
-          ref={videoInputRef}
-          type="file"
-          accept="video/*"
-          hidden
-          onChange={handleVideoSelect}
-        />
-
-        {/* SEND */}
+        {/* SEND BUTTON — stays on the right */}
         <button
           onClick={handleSendMessage}
-          className="bg-blue-600 hover:bg-blue-700 transition p-2 rounded-full text-white"
+          className="bg-blue-600 hover:bg-blue-700 transition p-2 rounded-full text-white flex-shrink-0"
+          title="Send message"
         >
           <IoSend />
         </button>

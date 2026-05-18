@@ -2,6 +2,7 @@ import Message from "../models/messageModel.js";
 import Conversation from "../models/conversationModel.js";
 import { v2 as cloudinary } from "cloudinary";
 import { getReceiverId, io, getUserSocketMap } from "../socket/socket.js";
+import mongoose from "mongoose";
 
 export const sendMessage = async (req, res) => {
   try {
@@ -10,12 +11,13 @@ export const sendMessage = async (req, res) => {
     const { text } = req.body;
     const file = req.file;
 
-    const receiverId = String(receiverIdParam).trim();
+    const receiverObjectId = new mongoose.Types.ObjectId(receiverIdParam);
     const senderIdStr = String(senderId).trim();
+    const receiverIdStr = String(receiverIdParam).trim();
 
     console.log(`\n📤 ===== SEND MESSAGE =====`);
     console.log(`   Sender:   ${senderIdStr}`);
-    console.log(`   Receiver: ${receiverId}`);
+    console.log(`   Receiver: ${receiverIdStr}`);
 
     let imageUrl = "", videoUrl = "", audioUrl = "";
 
@@ -30,18 +32,18 @@ export const sendMessage = async (req, res) => {
     }
 
     let conversation = await Conversation.findOne({
-      participants: { $all: [senderId, receiverId] },
+      participants: { $all: [senderId, receiverObjectId] },
     });
 
     if (!conversation) {
       conversation = await Conversation.create({
-        participants: [senderId, receiverId],
+        participants: [senderId, receiverObjectId],
       });
     }
 
     const newMessage = new Message({
       sender: senderId,
-      receiver: receiverId,
+      receiver: receiverObjectId,
       text: text || "",
       image: imageUrl,
       video: videoUrl,
@@ -51,11 +53,10 @@ export const sendMessage = async (req, res) => {
     conversation.messages.push(newMessage._id);
     await Promise.all([conversation.save(), newMessage.save()]);
 
-    // Plain string payload — no Mongoose ObjectIds
     const payload = {
       _id: String(newMessage._id),
       sender: senderIdStr,
-      receiver: receiverId,
+      receiver: receiverIdStr,
       text: newMessage.text,
       image: newMessage.image,
       video: newMessage.video,
@@ -65,23 +66,18 @@ export const sendMessage = async (req, res) => {
       updatedAt: newMessage.updatedAt,
     };
 
-    // Log the full socket map so we can see who is online
     const socketMap = getUserSocketMap();
     console.log(`   Socket map:`, socketMap);
 
-    const receiverSocketId = getReceiverId(receiverId);
-    console.log(`   Receiver socket ID: ${receiverSocketId || "NOT FOUND — receiver offline"}`);
+    const receiverSocketId = getReceiverId(receiverIdStr);
+    console.log(`   Receiver socket ID: ${receiverSocketId || "OFFLINE"}`);
 
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", payload);
-      console.log(`   ✅ Emitted newMessage to receiver socket: ${receiverSocketId}`);
-    } else {
-      console.warn(`   ⚠️  Receiver NOT in socket map. Message saved to DB only.`);
+      console.log(`   ✅ Emitted to receiver`);
     }
 
-    console.log(`   Payload:`, payload);
     console.log(`===========================\n`);
-
     res.status(201).json(payload);
   } catch (error) {
     console.log("❌ sendMessage error:", error);
@@ -157,19 +153,104 @@ export const getConversations = async (req, res) => {
   }
 };
 
+// Returns unread counts per sender using $toString to handle
+// both ObjectId and string storage formats in DB
+export const getUnreadCounts = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userIdStr = String(userId);
+
+    console.log(`📊 getUnreadCounts for: ${userIdStr}`);
+
+    const unreadMessages = await Message.aggregate([
+      {
+        $match: {
+          $expr: {
+            $eq: [{ $toString: "$receiver" }, userIdStr],
+          },
+          read: false,
+        },
+      },
+      {
+        $group: {
+          _id: { $toString: "$sender" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const counts = {};
+    unreadMessages.forEach((item) => {
+      counts[item._id] = item.count;
+    });
+
+    console.log(`📊 Unread counts result:`, counts);
+    res.status(200).json(counts);
+  } catch (error) {
+    console.log("Error in getUnreadCounts controller", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Marks messages from a specific sender as read
 export const markMessagesAsRead = async (req, res) => {
   try {
-    const { id: receiverId } = req.params;
-    const senderId = req.user._id;
+    const { id: senderIdParam } = req.params;
+    const receiverId = req.user._id;
+    const receiverIdStr = String(receiverId);
+    const senderIdStr = String(senderIdParam);
 
-    await Message.updateMany(
-      { sender: receiverId, receiver: senderId, read: false },
+    console.log(`✅ markMessagesAsRead: sender=${senderIdStr} receiver=${receiverIdStr}`);
+
+    const result = await Message.updateMany(
+      {
+        $expr: {
+          $and: [
+            { $eq: [{ $toString: "$sender" }, senderIdStr] },
+            { $eq: [{ $toString: "$receiver" }, receiverIdStr] },
+          ],
+        },
+        read: false,
+      },
       { $set: { read: true } }
     );
 
-    res.status(200).json({ message: "Messages marked as read" });
+    console.log(`✅ Marked ${result.modifiedCount} messages as read`);
+    res.status(200).json({
+      message: "Messages marked as read",
+      count: result.modifiedCount,
+    });
   } catch (error) {
     console.log("Error in markMessagesAsRead controller", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Marks ALL unread messages for a user as read
+// Called when user visits the messages page to clear stale counts
+// from users no longer in their following list
+export const markAllMessagesAsRead = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userIdStr = String(userId);
+
+    const result = await Message.updateMany(
+      {
+        $expr: {
+          $eq: [{ $toString: "$receiver" }, userIdStr],
+        },
+        read: false,
+      },
+      { $set: { read: true } }
+    );
+
+    console.log(`✅ markAllMessagesAsRead: marked ${result.modifiedCount} as read for ${userIdStr}`);
+    res.status(200).json({
+      message: "All messages marked as read",
+      count: result.modifiedCount,
+    });
+  } catch (error) {
+    console.log("Error in markAllMessagesAsRead controller", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { IoHomeOutline, IoLogOut } from "react-icons/io5";
 import { IoIosNotificationsOutline } from "react-icons/io";
 import { FaRegMessage } from "react-icons/fa6";
@@ -7,14 +7,18 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import useGetConversation from "../../../zustand/useGetConversations";
+import { disconnectSocket } from "../../socket/socketClient";
 
 function Sidebar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const authUser = queryClient.getQueryData(["authUser"]);
 
-  // Read unread badge count purely from Zustand — SocketContext writes here
-  const { unreadCounts } = useGetConversation();
+  // Subscribe directly to Zustand store so this component
+  // re-renders instantly when unreadCounts changes
+  const unreadCounts = useGetConversation((state) => state.unreadCounts);
+  const clearAll = useGetConversation((state) => state.clearAll);
+
   const totalUnread = Object.values(unreadCounts || {}).reduce(
     (acc, val) => acc + (typeof val === "number" ? val : 0),
     0
@@ -41,6 +45,8 @@ function Sidebar() {
     },
     onSuccess: () => {
       toast.success("Signed out");
+      disconnectSocket();
+      clearAll();
       queryClient.invalidateQueries({ queryKey: ["authUser"] });
     },
     onError: (err) => toast.error(err.message),
@@ -59,7 +65,6 @@ function Sidebar() {
           <span className="hidden md:block">Home</span>
         </div>
 
-        {/* NOTIFICATIONS */}
         <div
           className={`${navItem} relative`}
           onClick={() => navigate("/notifications")}
@@ -73,7 +78,6 @@ function Sidebar() {
           <span className="hidden md:block">Notifications</span>
         </div>
 
-        {/* MESSAGES */}
         <div
           className={`${navItem} relative`}
           onClick={() => navigate("/messages")}
@@ -96,7 +100,6 @@ function Sidebar() {
         </div>
       </div>
 
-      {/* BOTTOM USER */}
       <div className="flex items-center justify-between gap-3 mt-6 bg-gray-900 p-3 rounded-xl">
         <div className="flex items-center gap-3">
           <img

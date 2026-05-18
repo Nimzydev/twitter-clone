@@ -29,29 +29,51 @@ function Messages() {
   const isLoading = loadingFollowing || loadingConversations;
 
   const mergedUsers = React.useMemo(() => {
-    if (!followingUsers) return [];
-
     const convMap = {};
     if (conversations) {
       conversations.forEach((conv) => {
-        convMap[conv._id] = conv;
+        convMap[String(conv._id)] = conv;
       });
     }
 
-    return followingUsers.map((user) => {
-      if (convMap[user._id]) {
-        return {
+    const userMap = {};
+
+    // Add all following users
+    if (followingUsers) {
+      followingUsers.forEach((user) => {
+        const id = String(user._id);
+        userMap[id] = {
           ...user,
-          lastMessage: convMap[user._id].lastMessage || null,
+          lastMessage: convMap[id]?.lastMessage || null,
         };
-      }
-      return { ...user, lastMessage: null };
-    });
+      });
+    }
+
+    // Also add conversation users who may not be in following list
+    // so messages from non-followed users still appear
+    if (conversations) {
+      conversations.forEach((conv) => {
+        const id = String(conv._id);
+        if (!userMap[id]) {
+          userMap[id] = {
+            _id: conv._id,
+            fullName: conv.fullName,
+            username: conv.username,
+            profilePic: conv.profilePic,
+            lastMessage: conv.lastMessage || null,
+          };
+        }
+      });
+    }
+
+    return Object.values(userMap);
   }, [followingUsers, conversations]);
 
   return (
     <div className="flex flex-col md:flex-row h-screen">
-      {isLoading && <TailSpin width={50} height={40} color="gold" />}
+      {isLoading && (
+        <TailSpin width={50} height={40} color="gold" />
+      )}
 
       {!isLoading && (
         <>

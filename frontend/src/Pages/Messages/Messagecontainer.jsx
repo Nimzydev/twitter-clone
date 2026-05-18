@@ -2,7 +2,7 @@ import { GiConversation } from "react-icons/gi";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSocketContext } from "../../context/SocketContext";
 import useGetConversation from "../../../zustand/useGetConversations";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Texts from "../../components/Texts/Texts";
 import Textinput from "../../components/Texts/Textinput";
 
@@ -20,32 +20,45 @@ function Messagecontainer() {
     selectedConversation &&
     typingUsers.includes(selectedConversation._id);
 
-  // When a conversation is opened:
-  // 1. Tell the server to mark messages as read
-  // 2. Clear the unread badge for this specific conversation
+  const lastMarkedRef = useRef(null);
+
   useEffect(() => {
     if (!selectedConversation?._id) return;
 
     const convId = String(selectedConversation._id).trim();
 
-    const markRead = async () => {
+    if (lastMarkedRef.current === convId) return;
+    lastMarkedRef.current = convId;
+
+    const markReadAndRefresh = async () => {
       try {
+        // Mark this conversation as read in DB
         await fetch(`/api/message/markread/${convId}`, {
           method: "PUT",
+          credentials: "include",
         });
+
+        // Re-fetch fresh counts from DB — no filtering, raw DB counts
+        const res = await fetch("/api/message/unreadcounts", {
+          credentials: "include",
+        });
+        const dbCounts = await res.json();
+
+        if (typeof dbCounts === "object" && !Array.isArray(dbCounts)) {
+          console.log("✅ [MARKREAD] Fresh DB counts:", dbCounts);
+          setUnreadCounts(dbCounts);
+        }
       } catch (error) {
         console.error("Failed to mark read:", error);
+        setUnreadCounts((prev) => {
+          const updated = { ...prev };
+          delete updated[convId];
+          return updated;
+        });
       }
     };
 
-    // Clear unread count for this conversation immediately on open
-    setUnreadCounts((prev) => {
-      const updated = { ...prev };
-      delete updated[convId];
-      return updated;
-    });
-
-    markRead();
+    markReadAndRefresh();
   }, [selectedConversation?._id]);
 
   const handleDeleteConversation = async () => {
@@ -61,6 +74,7 @@ function Messagecontainer() {
       if (!res.ok) throw new Error(data.error);
 
       setSelectedConversation(null);
+      lastMarkedRef.current = null;
       queryClient.invalidateQueries({ queryKey: ["chatUsers"] });
       queryClient.invalidateQueries({ queryKey: ["messages"] });
     } catch (error) {
@@ -86,7 +100,10 @@ function Messagecontainer() {
           <div className="flex items-center justify-between p-3 border-b border-gray-800">
             <button
               className="md:hidden text-white text-lg"
-              onClick={() => setSelectedConversation(null)}
+              onClick={() => {
+                setSelectedConversation(null);
+                lastMarkedRef.current = null;
+              }}
             >
               ←
             </button>

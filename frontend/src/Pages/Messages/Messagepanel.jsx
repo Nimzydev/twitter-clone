@@ -8,23 +8,19 @@ function Messagepanel({ chatUsers }) {
   const {
     selectedConversation,
     setSelectedConversation,
-    unreadCounts,
     setUnreadCounts,
     lastMessages,
   } = useGetConversation();
 
-  const { onlineUsers } = useSocketContext();
+  const unreadCounts = useGetConversation((state) => state.unreadCounts);
 
-  const filteredUsers = chatUsers?.filter((user) =>
-    user.fullName.toLowerCase().includes(search.toLowerCase())
-  );
+  const { onlineUsers } = useSocketContext();
 
   const handleSelectConversation = (user) => {
     setSelectedConversation(user);
-    // Only clear unread when the user explicitly opens the conversation
     setUnreadCounts((prev) => {
       const updated = { ...prev };
-      delete updated[user._id];
+      delete updated[String(user._id)];
       return updated;
     });
   };
@@ -36,6 +32,29 @@ function Messagepanel({ chatUsers }) {
       minute: "2-digit",
     });
   };
+
+  // Build enriched user list merging real-time lastMessages with server data
+  const enrichedUsers = (chatUsers || []).map((user) => {
+    const realtimeLast = lastMessages?.[user._id];
+    const serverLast = user.lastMessage;
+    const activeLast = realtimeLast || serverLast;
+    return { ...user, activeLast };
+  });
+
+  // Sort by most recent message — WhatsApp style
+  const sortedUsers = [...enrichedUsers].sort((a, b) => {
+    const timeA = a.activeLast?.createdAt
+      ? new Date(a.activeLast.createdAt).getTime()
+      : 0;
+    const timeB = b.activeLast?.createdAt
+      ? new Date(b.activeLast.createdAt).getTime()
+      : 0;
+    return timeB - timeA;
+  });
+
+  const filteredUsers = sortedUsers.filter((user) =>
+    user.fullName.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div
@@ -55,14 +74,10 @@ function Messagepanel({ chatUsers }) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {filteredUsers?.map((user) => {
+        {filteredUsers.map((user) => {
           const isOnline = onlineUsers.includes(user._id);
           const unread = unreadCounts?.[user._id] || 0;
-
-          // Real-time Zustand value takes priority over server data
-          const realtimeLast = lastMessages?.[user._id];
-          const serverLast = user.lastMessage;
-          const activeLast = realtimeLast || serverLast;
+          const activeLast = user.activeLast;
 
           const lastText =
             activeLast?.text ||
@@ -81,7 +96,6 @@ function Messagepanel({ chatUsers }) {
                 selectedConversation?._id === user._id ? "bg-gray-800" : ""
               }`}
             >
-              {/* AVATAR */}
               <div className="relative flex-shrink-0">
                 <img
                   src={user.profilePic || "/avatar.jpg"}
@@ -93,7 +107,6 @@ function Messagepanel({ chatUsers }) {
                 )}
               </div>
 
-              {/* NAME + LAST MESSAGE */}
               <div className="flex flex-col flex-1 min-w-0">
                 <div className="flex justify-between items-center">
                   <p className="text-sm font-semibold text-white truncate">
@@ -112,7 +125,6 @@ function Messagepanel({ chatUsers }) {
                 </p>
               </div>
 
-              {/* UNREAD BADGE */}
               {unread > 0 && (
                 <div className="min-w-[22px] h-[22px] rounded-full bg-red-500 flex items-center justify-center text-xs text-white font-bold px-1 flex-shrink-0">
                   {unread}

@@ -10,8 +10,7 @@ import {
   connectSocket,
   addSocketListener,
   removeSocketListener,
-  getSocket,
-} from "../socket/socketClient";
+} from "../../src/socket/socketClient";
 import useGetConversation from "../../zustand/useGetConversations";
 
 export const SocketContext = createContext();
@@ -27,35 +26,65 @@ export const SocketContextProvider = ({ children }) => {
   const {
     selectedConversation,
     setMessages,
-    setUnreadCounts,
     setLastMessage,
   } = useGetConversation();
 
-  // Refs updated every render — socket callbacks always read current values
   const selectedConvRef = useRef(null);
   const authUserIdRef = useRef(null);
   const setMessagesRef = useRef(null);
-  const setUnreadCountsRef = useRef(null);
   const setLastMessageRef = useRef(null);
+  const queryClientRef = useRef(queryClient);
+  const connectedUidRef = useRef(null);
 
   selectedConvRef.current = selectedConversation;
   setMessagesRef.current = setMessages;
-  setUnreadCountsRef.current = setUnreadCounts;
   setLastMessageRef.current = setLastMessage;
+  queryClientRef.current = queryClient;
 
-  // Connect socket once authUser is ready
+  // Hydrate unread counts from DB — called after socket connects
+  // Uses setTimeout(0) to yield to React's paint cycle first
+  // so all subscribers are mounted before setUnreadCounts fires
+  const hydrateUnreadCounts = () => {
+    setTimeout(() => {
+      fetch("/api/message/unreadcounts", { credentials: "include" })
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((dbCounts) => {
+          if (typeof dbCounts !== "object" || Array.isArray(dbCounts)) return;
+          console.log("📥 [UNREAD] Hydrated from DB:", dbCounts);
+          // getState() is always current — never stale
+          useGetConversation.getState().setUnreadCounts(dbCounts);
+        })
+        .catch((err) =>
+          console.error("❌ Failed to hydrate unread counts:", err)
+        );
+    }, 0);
+  };
+
+  // Connect socket and hydrate when authUser becomes available
   useEffect(() => {
     let pollInterval = null;
 
     const tryConnect = () => {
       const user = queryClient.getQueryData(["authUser"]);
-      if (user?._id) {
-        clearInterval(pollInterval);
-        const uid = String(user._id).trim();
-        authUserIdRef.current = uid;
-        const s = connectSocket(uid);
-        setSocket(s);
-      }
+      if (!user?._id) return;
+
+      const uid = String(user._id).trim();
+
+      // Already connected for this user — do nothing
+      if (connectedUidRef.current === uid) return;
+
+      clearInterval(pollInterval);
+      connectedUidRef.current = uid;
+      authUserIdRef.current = uid;
+
+      const s = connectSocket(uid);
+      setSocket(s);
+
+      // Hydrate unread counts for this user
+      hydrateUnreadCounts();
     };
 
     tryConnect();
@@ -64,18 +93,31 @@ export const SocketContextProvider = ({ children }) => {
     return () => clearInterval(pollInterval);
   }, []);
 
-  // Keep authUserIdRef fresh when query cache updates
+  // Reset connectedUidRef when user logs out so next login re-connects
   useEffect(() => {
     const unsub = queryClient.getQueryCache().subscribe(() => {
       const user = queryClient.getQueryData(["authUser"]);
       if (user?._id) {
-        authUserIdRef.current = String(user._id).trim();
+        const uid = String(user._id).trim();
+        authUserIdRef.current = uid;
+
+        // New user logged in — connect and hydrate
+        if (connectedUidRef.current !== uid) {
+          connectedUidRef.current = uid;
+          const s = connectSocket(uid);
+          setSocket(s);
+          hydrateUnreadCounts();
+        }
+      } else {
+        // Logged out — reset so next login triggers fresh connect + hydrate
+        connectedUidRef.current = null;
+        authUserIdRef.current = null;
       }
     });
     return () => unsub();
   }, [queryClient]);
 
-  // newMessage handler — registered once, reads everything via refs
+  // newMessage handler
   useEffect(() => {
     const handleNewMessage = (msg) => {
       const senderId = msg.sender
@@ -90,20 +132,14 @@ export const SocketContextProvider = ({ children }) => {
         ? String(selectedConvRef.current._id).trim()
         : null;
 
-      console.log(`\n📨 [CONTEXT] newMessage handler fired`);
+      console.log(`\n📨 [CONTEXT] newMessage`);
       console.log(`   senderId:   "${senderId}"`);
       console.log(`   receiverId: "${receiverId}"`);
       console.log(`   myId:       "${myId}"`);
       console.log(`   openChatId: "${openChatId}"`);
-      console.log(`   iAmReceiver: ${receiverId === myId}`);
-      console.log(`   chatOpen:    ${!!(openChatId && senderId === openChatId)}`);
 
-      if (!myId || !senderId || !receiverId) {
-        console.warn(`⚠️ Missing ID — skipping`);
-        return;
-      }
+      if (!myId || !senderId || !receiverId) return;
 
-      // Update last message preview
       if (receiverId === myId) {
         setLastMessageRef.current(senderId, {
           text: msg.text || "",
@@ -124,17 +160,17 @@ export const SocketContextProvider = ({ children }) => {
         });
       }
 
-      // Chat is open with sender — append to messages
+      // Chat open with sender — append message directly
       if (receiverId === myId && openChatId && senderId === openChatId) {
         console.log(`💬 Appending to open chat`);
         setMessagesRef.current((prev) => [...(prev || []), msg]);
         return;
       }
 
-      // Chat not open — increment unread
+      // Chat not open — increment unread badge
       if (receiverId === myId) {
         console.log(`🔔 Incrementing unread for: ${senderId}`);
-        setUnreadCountsRef.current((prev) => {
+        useGetConversation.getState().setUnreadCounts((prev) => {
           const next = {
             ...prev,
             [senderId]: (prev[senderId] || 0) + 1,
@@ -147,6 +183,20 @@ export const SocketContextProvider = ({ children }) => {
 
     addSocketListener("newMessage", handleNewMessage);
     return () => removeSocketListener("newMessage", handleNewMessage);
+  }, []);
+
+  // newNotification handler
+  useEffect(() => {
+    const handleNewNotification = () => {
+      console.log("🔔 [CONTEXT] newNotification — refreshing");
+      queryClientRef.current.invalidateQueries({
+        queryKey: ["notifications"],
+      });
+    };
+
+    addSocketListener("newNotification", handleNewNotification);
+    return () =>
+      removeSocketListener("newNotification", handleNewNotification);
   }, []);
 
   // Online users + typing
