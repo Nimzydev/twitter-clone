@@ -10,6 +10,7 @@ import { TailSpin } from "react-loader-spinner";
 import useUpdateProfileUser from "../../hooks/useUpdateUser";
 import { useFollow } from "../../hooks/useFollow";
 import FollowListModal from "../../components/FollowListModal/FollowListModal";
+import ImageViewerModal from "../../components/ImageViewerModal/ImageViewerModal";
 import toast from "react-hot-toast";
 
 function Profile() {
@@ -23,6 +24,10 @@ function Profile() {
   const [followModalOpen, setFollowModalOpen] = useState(false);
   const [followModalTitle, setFollowModalTitle] = useState("");
   const [followUsers, setFollowUsers] = useState([]);
+
+  // Image viewer state — stores the URL of the image to show in isolation
+  const [viewingImage, setViewingImage] = useState(null);
+  const [viewingImageAlt, setViewingImageAlt] = useState("");
 
   const coverImgRef = useRef(null);
   const profilePicRef = useRef(null);
@@ -97,7 +102,6 @@ function Profile() {
     }
   };
 
-  // COVER IMAGE SELECT → preview only
   const handleCoverSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -105,11 +109,9 @@ function Profile() {
     const reader = new FileReader();
     reader.onload = () => setCoverImg(reader.result);
     reader.readAsDataURL(file);
-    // reset input so same file can be re-selected after cancel
     e.target.value = "";
   };
 
-  // PROFILE PIC SELECT → preview only
   const handleProfilePicSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -120,19 +122,16 @@ function Profile() {
     e.target.value = "";
   };
 
-  // CANCEL COVER PREVIEW
   const cancelCoverPreview = () => {
     setCoverImg(null);
     setCoverImgFile(null);
   };
 
-  // CANCEL PROFILE PIC PREVIEW
   const cancelProfilePicPreview = () => {
     setProfilePicPreview(null);
     setProfilePicFile(null);
   };
 
-  // SAVE BOTH PREVIEWS
   const handleSaveImages = async () => {
     const updates = {};
     if (coverImg) updates.coverImg = coverImg;
@@ -143,6 +142,21 @@ function Profile() {
     setCoverImgFile(null);
     setProfilePicPreview(null);
     setProfilePicFile(null);
+  };
+
+  // Open image viewer — only if there is no pending preview
+  const handleViewProfilePic = () => {
+    const currentPic = profilePicPreview || user?.profilePic;
+    if (!currentPic || profilePicPreview) return;
+    setViewingImage(currentPic);
+    setViewingImageAlt(`${user?.fullName}'s profile picture`);
+  };
+
+  const handleViewCoverImg = () => {
+    const currentCover = coverImg || user?.coverImg;
+    if (!currentCover || coverImg) return;
+    setViewingImage(currentCover);
+    setViewingImageAlt(`${user?.fullName}'s cover photo`);
   };
 
   useEffect(() => {
@@ -174,7 +188,6 @@ function Profile() {
 
           {/* COVER IMAGE */}
           <div className="relative w-full h-52 bg-gray-900">
-            {/* Cover photo display */}
             {coverImg ? (
               <img
                 src={coverImg}
@@ -185,14 +198,15 @@ function Profile() {
               user.coverImg && user.coverImg !== "" && (
                 <img
                   src={user.coverImg}
-                  className="w-full h-full object-cover"
+                  onClick={handleViewCoverImg}
+                  className="w-full h-full object-cover cursor-pointer"
                   onError={(e) => { e.target.style.display = "none"; }}
                   alt="cover"
+                  title="Click to view cover photo"
                 />
               )
             )}
 
-            {/* Cover preview X cancel button */}
             {coverImg && isMyProfile && (
               <button
                 onClick={cancelCoverPreview}
@@ -203,7 +217,6 @@ function Profile() {
               </button>
             )}
 
-            {/* Cover edit icon — only on own profile */}
             {isMyProfile && (
               <button
                 onClick={() => coverImgRef.current.click()}
@@ -214,7 +227,6 @@ function Profile() {
               </button>
             )}
 
-            {/* Hidden cover file input */}
             <input
               type="file"
               accept="image/*"
@@ -223,16 +235,25 @@ function Profile() {
               className="hidden"
             />
 
-            {/* PROFILE PIC — sits on bottom-left of cover */}
+            {/* PROFILE PIC */}
             <div className="absolute -bottom-16 left-4">
               <div className="relative w-32 h-32">
                 <img
                   src={profilePicPreview || user.profilePic || "/avatar.jpg"}
                   alt="profile"
-                  className="w-32 h-32 rounded-full border-4 border-black object-cover bg-black"
+                  onClick={handleViewProfilePic}
+                  className={`w-32 h-32 rounded-full border-4 border-black object-cover bg-black ${
+                    !profilePicPreview && user.profilePic
+                      ? "cursor-pointer hover:opacity-90 transition"
+                      : ""
+                  }`}
+                  title={
+                    !profilePicPreview && user.profilePic
+                      ? "Click to view profile picture"
+                      : undefined
+                  }
                 />
 
-                {/* Profile pic X cancel button */}
                 {profilePicPreview && isMyProfile && (
                   <button
                     onClick={cancelProfilePicPreview}
@@ -243,7 +264,6 @@ function Profile() {
                   </button>
                 )}
 
-                {/* Profile pic edit icon — only on own profile */}
                 {isMyProfile && (
                   <button
                     onClick={() => profilePicRef.current.click()}
@@ -254,7 +274,6 @@ function Profile() {
                   </button>
                 )}
 
-                {/* Hidden profile pic file input */}
                 <input
                   type="file"
                   accept="image/*"
@@ -270,7 +289,6 @@ function Profile() {
           <div className="flex justify-end px-4 mt-5 gap-3">
             {isMyProfile ? (
               <>
-                {/* Save images button — only shown when there's a pending preview */}
                 {(coverImg || profilePicPreview) && (
                   <button
                     onClick={handleSaveImages}
@@ -364,6 +382,15 @@ function Profile() {
             title={followModalTitle}
             users={followUsers}
           />
+
+          {/* IMAGE VIEWER MODAL */}
+          {viewingImage && (
+            <ImageViewerModal
+              imageUrl={viewingImage}
+              altText={viewingImageAlt}
+              onClose={() => setViewingImage(null)}
+            />
+          )}
         </>
       )}
     </div>

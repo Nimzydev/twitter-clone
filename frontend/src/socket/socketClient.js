@@ -1,8 +1,19 @@
 import { io } from "socket.io-client";
 
-// In development: reads VITE_API_URL from frontend .env = http://localhost:5000
-// In production: set VITE_API_URL to your deployed backend URL
-const SERVER_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+// In production, the frontend is served by the backend on the same domain
+// so we connect to the current window origin instead of a hardcoded URL.
+// In development, we connect to localhost:5000.
+const getServerUrl = () => {
+  // If running in a browser in production, connect to same origin
+  if (typeof window !== "undefined" &&
+      window.location.hostname !== "localhost") {
+    return window.location.origin;
+  }
+  // Development fallback
+  return import.meta.env.VITE_API_URL || "http://localhost:5000";
+};
+
+const SERVER_URL = getServerUrl();
 
 let socket = null;
 let myUserId = null;

@@ -30,22 +30,14 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// AWS Elastic Beanstalk uses port 8080 by default
-// Falls back to 5000 for local development
 const PORT = process.env.PORT || 8080;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 const isProduction = process.env.NODE_ENV === "production";
 
-// Trust the load balancer proxy on AWS
-// This is required for rate limiting and secure cookies to work correctly
-// behind AWS Elastic Beanstalk's load balancer
 if (isProduction) {
   app.set("trust proxy", 1);
 }
 
-// Security headers
-// crossOriginEmbedderPolicy disabled because Cloudinary images would be blocked
-// contentSecurityPolicy disabled to avoid blocking Socket.IO and Cloudinary
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: false,
@@ -55,15 +47,11 @@ app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// CORS — allows requests from your frontend URL
-// In production this should be your real frontend domain
 app.use(cors({
   origin: CLIENT_URL,
   credentials: true,
 }));
 
-// Rate limiting for auth routes
-// 20 login/signup attempts per 15 minutes per IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -72,8 +60,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// General API rate limit
-// 200 requests per 15 minutes per IP
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -89,22 +75,15 @@ app.use("/api/message", generalLimiter, messageRoute);
 app.use("/api/notifications", generalLimiter, notificationsRoute);
 app.use("/api/account", generalLimiter, accountRoutes);
 
-// Serve frontend static files in production
-// The frontend build output (dist folder) sits alongside the backend
-// This is the standard pattern for full-stack deployment on Elastic Beanstalk
-if (isProduction) {
-  const frontendDistPath = path.join(__dirname, "../frontend/dist");
+// Serve frontend static files
+// dist folder is placed directly in the backend folder before zipping
+app.use(express.static(path.join(__dirname, "dist")));
 
-  // Serve static assets (JS, CSS, images)
-  app.use(express.static(frontendDistPath));
-
-  // For any route that is not an API route, serve index.html
-  // This allows React Router to handle client-side routing
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(frontendDistPath, "index.html"));
-  });
-}
+// All non-API routes serve index.html for React Router
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${isProduction ? "production" : "development"} mode`);
+  console.log(`✅ Server running on port ${PORT} in ${isProduction ? "production" : "development"} mode`);
 });

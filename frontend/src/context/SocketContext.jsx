@@ -41,9 +41,6 @@ export const SocketContextProvider = ({ children }) => {
   setLastMessageRef.current = setLastMessage;
   queryClientRef.current = queryClient;
 
-  // Hydrate unread counts from DB — called after socket connects
-  // Uses setTimeout(0) to yield to React's paint cycle first
-  // so all subscribers are mounted before setUnreadCounts fires
   const hydrateUnreadCounts = () => {
     setTimeout(() => {
       fetch("/api/message/unreadcounts", { credentials: "include" })
@@ -53,8 +50,6 @@ export const SocketContextProvider = ({ children }) => {
         })
         .then((dbCounts) => {
           if (typeof dbCounts !== "object" || Array.isArray(dbCounts)) return;
-          console.log("📥 [UNREAD] Hydrated from DB:", dbCounts);
-          // getState() is always current — never stale
           useGetConversation.getState().setUnreadCounts(dbCounts);
         })
         .catch((err) =>
@@ -63,7 +58,6 @@ export const SocketContextProvider = ({ children }) => {
     }, 0);
   };
 
-  // Connect socket and hydrate when authUser becomes available
   useEffect(() => {
     let pollInterval = null;
 
@@ -73,7 +67,6 @@ export const SocketContextProvider = ({ children }) => {
 
       const uid = String(user._id).trim();
 
-      // Already connected for this user — do nothing
       if (connectedUidRef.current === uid) return;
 
       clearInterval(pollInterval);
@@ -83,7 +76,6 @@ export const SocketContextProvider = ({ children }) => {
       const s = connectSocket(uid);
       setSocket(s);
 
-      // Hydrate unread counts for this user
       hydrateUnreadCounts();
     };
 
@@ -93,7 +85,6 @@ export const SocketContextProvider = ({ children }) => {
     return () => clearInterval(pollInterval);
   }, []);
 
-  // Reset connectedUidRef when user logs out so next login re-connects
   useEffect(() => {
     const unsub = queryClient.getQueryCache().subscribe(() => {
       const user = queryClient.getQueryData(["authUser"]);
@@ -101,7 +92,6 @@ export const SocketContextProvider = ({ children }) => {
         const uid = String(user._id).trim();
         authUserIdRef.current = uid;
 
-        // New user logged in — connect and hydrate
         if (connectedUidRef.current !== uid) {
           connectedUidRef.current = uid;
           const s = connectSocket(uid);
@@ -109,7 +99,6 @@ export const SocketContextProvider = ({ children }) => {
           hydrateUnreadCounts();
         }
       } else {
-        // Logged out — reset so next login triggers fresh connect + hydrate
         connectedUidRef.current = null;
         authUserIdRef.current = null;
       }
@@ -117,7 +106,6 @@ export const SocketContextProvider = ({ children }) => {
     return () => unsub();
   }, [queryClient]);
 
-  // newMessage handler
   useEffect(() => {
     const handleNewMessage = (msg) => {
       const senderId = msg.sender
@@ -131,12 +119,6 @@ export const SocketContextProvider = ({ children }) => {
       const openChatId = selectedConvRef.current?._id
         ? String(selectedConvRef.current._id).trim()
         : null;
-
-      console.log(`\n📨 [CONTEXT] newMessage`);
-      console.log(`   senderId:   "${senderId}"`);
-      console.log(`   receiverId: "${receiverId}"`);
-      console.log(`   myId:       "${myId}"`);
-      console.log(`   openChatId: "${openChatId}"`);
 
       if (!myId || !senderId || !receiverId) return;
 
@@ -160,22 +142,17 @@ export const SocketContextProvider = ({ children }) => {
         });
       }
 
-      // Chat open with sender — append message directly
       if (receiverId === myId && openChatId && senderId === openChatId) {
-        console.log(`💬 Appending to open chat`);
         setMessagesRef.current((prev) => [...(prev || []), msg]);
         return;
       }
 
-      // Chat not open — increment unread badge
       if (receiverId === myId) {
-        console.log(`🔔 Incrementing unread for: ${senderId}`);
         useGetConversation.getState().setUnreadCounts((prev) => {
           const next = {
             ...prev,
             [senderId]: (prev[senderId] || 0) + 1,
           };
-          console.log(`📊 unreadCounts:`, next);
           return next;
         });
       }
@@ -185,10 +162,8 @@ export const SocketContextProvider = ({ children }) => {
     return () => removeSocketListener("newMessage", handleNewMessage);
   }, []);
 
-  // newNotification handler
   useEffect(() => {
     const handleNewNotification = () => {
-      console.log("🔔 [CONTEXT] newNotification — refreshing");
       queryClientRef.current.invalidateQueries({
         queryKey: ["notifications"],
       });
@@ -199,7 +174,6 @@ export const SocketContextProvider = ({ children }) => {
       removeSocketListener("newNotification", handleNewNotification);
   }, []);
 
-  // Online users + typing
   useEffect(() => {
     const onOnline = (users) => setOnlineUsers(users);
     const onTyping = ({ senderId }) =>

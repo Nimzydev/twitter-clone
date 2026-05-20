@@ -27,20 +27,12 @@ export const followUnFollow = async (req, res) => {
     const isFollowing = user.following.includes(receiverId);
 
     if (isFollowing) {
-      await User.findByIdAndUpdate(userId, {
-        $pull: { following: receiverId },
-      });
-      await User.findByIdAndUpdate(receiverId, {
-        $pull: { followers: userId },
-      });
+      await User.findByIdAndUpdate(userId, { $pull: { following: receiverId } });
+      await User.findByIdAndUpdate(receiverId, { $pull: { followers: userId } });
       return res.status(200).json({ message: "Unfollowed successfully" });
     } else {
-      await User.findByIdAndUpdate(userId, {
-        $push: { following: receiverId },
-      });
-      await User.findByIdAndUpdate(receiverId, {
-        $push: { followers: userId },
-      });
+      await User.findByIdAndUpdate(userId, { $push: { following: receiverId } });
+      await User.findByIdAndUpdate(receiverId, { $push: { followers: userId } });
 
       await createNotification({
         type: "follow",
@@ -101,6 +93,32 @@ export const updateUser = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check email uniqueness — only if the user is changing their email
+    if (email && email !== user.email) {
+      const emailTaken = await User.findOne({
+        email,
+        _id: { $ne: req.user._id },
+      });
+      if (emailTaken) {
+        return res.status(400).json({
+          error: "This email address is already in use by another account",
+        });
+      }
+    }
+
+    // Check username uniqueness — only if the user is changing their username
+    if (username && username !== user.username) {
+      const usernameTaken = await User.findOne({
+        username,
+        _id: { $ne: req.user._id },
+      });
+      if (usernameTaken) {
+        return res.status(400).json({
+          error: "This username is already taken",
+        });
+      }
     }
 
     if (currentPassword && newPassword) {

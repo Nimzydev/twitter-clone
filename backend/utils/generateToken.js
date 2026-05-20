@@ -10,8 +10,12 @@ export const generateTokenAndSetCookie = (userId, res) => {
   res.cookie("jwt", token, {
     maxAge: 30 * 24 * 60 * 60 * 1000,
     httpOnly: true,
-    sameSite: isProduction ? "strict" : "lax",
-    secure: isProduction, // true in production (HTTPS), false in development
+    // sameSite must be "lax" when not using HTTPS
+    // "strict" or "none" with secure:true requires HTTPS
+    sameSite: "lax",
+    // secure:false because your EB URL is HTTP not HTTPS
+    // Change to true only after you add SSL/HTTPS to your domain
+    secure: false,
     path: "/",
   });
 };
