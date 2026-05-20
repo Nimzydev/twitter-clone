@@ -12,7 +12,6 @@ function MobileNavbar() {
   const queryClient = useQueryClient();
   const authUser = queryClient.getQueryData(["authUser"]);
 
-  // Selector subscription — re-renders when unreadCounts changes
   const unreadCounts = useGetConversation((state) => state.unreadCounts);
   const clearAll = useGetConversation((state) => state.clearAll);
 
@@ -51,8 +50,13 @@ function MobileNavbar() {
   });
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 md:hidden bg-black border-t border-gray-800 flex justify-around items-center py-3 z-50">
-
+    <div
+      className="fixed bottom-0 left-0 right-0 md:hidden bg-black border-t border-gray-800 flex justify-around items-center z-50"
+      style={{
+        paddingTop: "12px",
+        paddingBottom: `calc(12px + env(safe-area-inset-bottom))`,
+      }}
+    >
       <FaHome
         className="text-xl cursor-pointer"
         onClick={() => navigate("/")}

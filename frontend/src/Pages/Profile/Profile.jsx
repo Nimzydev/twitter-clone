@@ -25,7 +25,6 @@ function Profile() {
   const [followModalTitle, setFollowModalTitle] = useState("");
   const [followUsers, setFollowUsers] = useState([]);
 
-  // Image viewer state — stores the URL of the image to show in isolation
   const [viewingImage, setViewingImage] = useState(null);
   const [viewingImageAlt, setViewingImageAlt] = useState("");
 
@@ -65,7 +64,9 @@ function Profile() {
     if (!confirmDelete) return;
 
     try {
-      const res = await fetch("/api/user/delete-account", { method: "DELETE" });
+      const res = await fetch("/api/user/delete-account", {
+        method: "DELETE",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success("Account deleted");
@@ -144,16 +145,15 @@ function Profile() {
     setProfilePicFile(null);
   };
 
-  // Open image viewer — only if there is no pending preview
   const handleViewProfilePic = () => {
-    const currentPic = profilePicPreview || user?.profilePic;
+    const currentPic = user?.profilePic;
     if (!currentPic || profilePicPreview) return;
     setViewingImage(currentPic);
     setViewingImageAlt(`${user?.fullName}'s profile picture`);
   };
 
   const handleViewCoverImg = () => {
-    const currentCover = coverImg || user?.coverImg;
+    const currentCover = user?.coverImg;
     if (!currentCover || coverImg) return;
     setViewingImage(currentCover);
     setViewingImageAlt(`${user?.fullName}'s cover photo`);
@@ -164,7 +164,7 @@ function Profile() {
   }, [username]);
 
   return (
-    <div className="w-full max-w-2xl mx-auto min-h-screen border-r border-l border-gray-800">
+    <div className="w-full max-w-2xl mx-auto min-h-screen border-r border-l border-gray-800 pb-20 md:pb-0">
 
       {(isLoading || isFetching) && (
         <div className="flex justify-center py-10">
@@ -187,7 +187,7 @@ function Profile() {
           </div>
 
           {/* COVER IMAGE */}
-          <div className="relative w-full h-52 bg-gray-900">
+          <div className="relative w-full h-40 sm:h-52 bg-gray-900">
             {coverImg ? (
               <img
                 src={coverImg}
@@ -195,12 +195,15 @@ function Profile() {
                 alt="cover preview"
               />
             ) : (
-              user.coverImg && user.coverImg !== "" && (
+              user.coverImg &&
+              user.coverImg !== "" && (
                 <img
                   src={user.coverImg}
                   onClick={handleViewCoverImg}
                   className="w-full h-full object-cover cursor-pointer"
-                  onError={(e) => { e.target.style.display = "none"; }}
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
                   alt="cover"
                   title="Click to view cover photo"
                 />
@@ -235,14 +238,14 @@ function Profile() {
               className="hidden"
             />
 
-            {/* PROFILE PIC */}
-            <div className="absolute -bottom-16 left-4">
-              <div className="relative w-32 h-32">
+            {/* PROFILE PIC — positioned at bottom-left of cover */}
+            <div className="absolute -bottom-14 left-4">
+              <div className="relative w-24 h-24 sm:w-32 sm:h-32">
                 <img
                   src={profilePicPreview || user.profilePic || "/avatar.jpg"}
                   alt="profile"
                   onClick={handleViewProfilePic}
-                  className={`w-32 h-32 rounded-full border-4 border-black object-cover bg-black ${
+                  className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-black object-cover bg-black ${
                     !profilePicPreview && user.profilePic
                       ? "cursor-pointer hover:opacity-90 transition"
                       : ""
@@ -285,15 +288,18 @@ function Profile() {
             </div>
           </div>
 
-          {/* ACTION BUTTONS */}
-          <div className="flex justify-end px-4 mt-5 gap-3">
+          {/* ACTION BUTTONS
+              mt-16 on mobile gives enough room for the profile pic (96px avatar + 4px border)
+              mt-20 on sm+ gives room for the larger 128px avatar
+              justify-end keeps buttons on the right as before */}
+          <div className="flex flex-wrap justify-end px-4 mt-16 sm:mt-20 gap-2">
             {isMyProfile ? (
               <>
                 {(coverImg || profilePicPreview) && (
                   <button
                     onClick={handleSaveImages}
                     disabled={isUpdatingProfile}
-                    className="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-full flex items-center gap-2 disabled:opacity-60"
+                    className="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-full flex items-center gap-2 disabled:opacity-60 text-sm"
                   >
                     {isUpdatingProfile ? (
                       <TailSpin width={16} height={16} color="white" />
@@ -305,14 +311,14 @@ function Profile() {
 
                 <button
                   onClick={() => setIsOpen(true)}
-                  className="border border-gray-500 px-4 py-2 rounded-full hover:bg-gray-900"
+                  className="border border-gray-500 px-4 py-2 rounded-full hover:bg-gray-900 text-sm"
                 >
                   Edit profile
                 </button>
 
                 <button
                   onClick={handleDeleteAccount}
-                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-full"
+                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-full text-sm"
                 >
                   Delete account
                 </button>
@@ -320,7 +326,7 @@ function Profile() {
             ) : (
               <button
                 onClick={() => follow(user._id)}
-                className="bg-white text-black px-4 py-2 rounded-full font-semibold hover:bg-gray-200"
+                className="bg-white text-black px-4 py-2 rounded-full font-semibold hover:bg-gray-200 text-sm"
               >
                 {amIFollowing ? "Unfollow" : "Follow"}
               </button>
@@ -328,7 +334,7 @@ function Profile() {
           </div>
 
           {/* USER INFO */}
-          <div className="mt-16 px-4">
+          <div className="mt-4 px-4">
             <h1 className="text-2xl font-bold">{user.fullName}</h1>
             <p className="text-gray-400">@{user.username}</p>
             {user.bio && (
@@ -336,10 +342,12 @@ function Profile() {
             )}
             <div className="flex gap-5 mt-4 text-sm">
               <button onClick={openFollowing} className="hover:underline">
-                <span className="font-bold">{user.following?.length}</span> Following
+                <span className="font-bold">{user.following?.length}</span>{" "}
+                Following
               </button>
               <button onClick={openFollowers} className="hover:underline">
-                <span className="font-bold">{user.followers?.length}</span> Followers
+                <span className="font-bold">{user.followers?.length}</span>{" "}
+                Followers
               </button>
             </div>
           </div>
@@ -348,24 +356,30 @@ function Profile() {
           <div className="flex mt-6 border-b border-gray-800">
             <button
               onClick={() => setPostType("Tweets")}
-              className={`flex-1 py-3 font-semibold ${
-                postType === "Tweets" ? "border-b-4 border-blue-500" : "text-gray-400"
+              className={`flex-1 py-3 font-semibold text-sm ${
+                postType === "Tweets"
+                  ? "border-b-4 border-blue-500"
+                  : "text-gray-400"
               }`}
             >
               Tweets
             </button>
             <button
               onClick={() => setPostType("Likes")}
-              className={`flex-1 py-3 font-semibold ${
-                postType === "Likes" ? "border-b-4 border-blue-500" : "text-gray-400"
+              className={`flex-1 py-3 font-semibold text-sm ${
+                postType === "Likes"
+                  ? "border-b-4 border-blue-500"
+                  : "text-gray-400"
               }`}
             >
               Likes
             </button>
             <button
               onClick={() => setPostType("Retweets")}
-              className={`flex-1 py-3 font-semibold ${
-                postType === "Retweets" ? "border-b-4 border-blue-500" : "text-gray-400"
+              className={`flex-1 py-3 font-semibold text-sm ${
+                postType === "Retweets"
+                  ? "border-b-4 border-blue-500"
+                  : "text-gray-400"
               }`}
             >
               Retweets
@@ -374,7 +388,11 @@ function Profile() {
 
           <Posts postType={postType} username={username} userId={user._id} />
 
-          <Editmodal authUser={authUser} isOpen={isOpen} setIsOpen={setIsOpen} />
+          <Editmodal
+            authUser={authUser}
+            isOpen={isOpen}
+            setIsOpen={setIsOpen}
+          />
 
           <FollowListModal
             isOpen={followModalOpen}
@@ -383,7 +401,6 @@ function Profile() {
             users={followUsers}
           />
 
-          {/* IMAGE VIEWER MODAL */}
           {viewingImage && (
             <ImageViewerModal
               imageUrl={viewingImage}

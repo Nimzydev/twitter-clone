@@ -38,7 +38,6 @@ function Messages() {
 
     const userMap = {};
 
-    // Add all following users
     if (followingUsers) {
       followingUsers.forEach((user) => {
         const id = String(user._id);
@@ -49,8 +48,6 @@ function Messages() {
       });
     }
 
-    // Also add conversation users who may not be in following list
-    // so messages from non-followed users still appear
     if (conversations) {
       conversations.forEach((conv) => {
         const id = String(conv._id);
@@ -70,9 +67,14 @@ function Messages() {
   }, [followingUsers, conversations]);
 
   return (
-    <div className="flex flex-col md:flex-row h-screen">
+    <div
+      className="flex flex-col md:flex-row w-full overflow-hidden"
+      style={{ height: "100dvh" }}
+    >
       {isLoading && (
-        <TailSpin width={50} height={40} color="gold" />
+        <div className="flex items-center justify-center w-full h-full">
+          <TailSpin width={50} height={40} color="gold" />
+        </div>
       )}
 
       {!isLoading && (

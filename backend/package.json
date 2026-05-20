@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "zip": "node zipFiles.js NODE_ENV === production"
+    "zip": "node zipFiles.js"
   },
   "keywords": [],
   "author": "",

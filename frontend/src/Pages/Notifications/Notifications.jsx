@@ -46,7 +46,6 @@ function Notifications() {
     onError: (err) => toast.error(err.message),
   });
 
-  // Sort newest first in real time
   const sortedNotifications = notifications
     ? [...notifications].sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
@@ -54,7 +53,7 @@ function Notifications() {
     : [];
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full max-w-2xl mx-auto pb-20 md:pb-0">
       <div className="flex items-center justify-between p-4 border-b border-gray-800">
         <h1 className="text-lg font-semibold text-white">Notifications</h1>
 

@@ -13,7 +13,6 @@ function Messagepanel({ chatUsers }) {
   } = useGetConversation();
 
   const unreadCounts = useGetConversation((state) => state.unreadCounts);
-
   const { onlineUsers } = useSocketContext();
 
   const handleSelectConversation = (user) => {
@@ -33,7 +32,6 @@ function Messagepanel({ chatUsers }) {
     });
   };
 
-  // Build enriched user list merging real-time lastMessages with server data
   const enrichedUsers = (chatUsers || []).map((user) => {
     const realtimeLast = lastMessages?.[user._id];
     const serverLast = user.lastMessage;
@@ -41,7 +39,6 @@ function Messagepanel({ chatUsers }) {
     return { ...user, activeLast };
   });
 
-  // Sort by most recent message — WhatsApp style
   const sortedUsers = [...enrichedUsers].sort((a, b) => {
     const timeA = a.activeLast?.createdAt
       ? new Date(a.activeLast.createdAt).getTime()
@@ -61,19 +58,22 @@ function Messagepanel({ chatUsers }) {
       className={`w-full md:w-1/3 border-r border-gray-800 flex flex-col ${
         selectedConversation ? "hidden md:flex" : "flex"
       }`}
+      style={{ height: "100dvh" }}
     >
-      <div className="p-3 border-b border-gray-800">
+      {/* HEADER + SEARCH — fixed, never scrolls */}
+      <div className="flex-shrink-0 p-3 border-b border-gray-800">
         <h2 className="text-lg font-semibold text-white">Messages</h2>
         <input
           type="text"
           placeholder="Search followers..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-900 text-white border border-gray-700"
+          className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-900 text-white border border-gray-700 outline-none"
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      {/* CONVERSATION LIST — scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0">
         {filteredUsers.map((user) => {
           const isOnline = onlineUsers.includes(user._id);
           const unread = unreadCounts?.[user._id] || 0;

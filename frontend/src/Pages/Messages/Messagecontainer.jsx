@@ -32,20 +32,17 @@ function Messagecontainer() {
 
     const markReadAndRefresh = async () => {
       try {
-        // Mark this conversation as read in DB
         await fetch(`/api/message/markread/${convId}`, {
           method: "PUT",
           credentials: "include",
         });
 
-        // Re-fetch fresh counts from DB — no filtering, raw DB counts
         const res = await fetch("/api/message/unreadcounts", {
           credentials: "include",
         });
         const dbCounts = await res.json();
 
         if (typeof dbCounts === "object" && !Array.isArray(dbCounts)) {
-          console.log("✅ [MARKREAD] Fresh DB counts:", dbCounts);
           setUnreadCounts(dbCounts);
         }
       } catch (error) {
@@ -84,9 +81,10 @@ function Messagecontainer() {
 
   return (
     <div
-      className={`flex-1 flex flex-col h-screen ${
+      className={`flex-1 flex flex-col min-h-0 ${
         !selectedConversation ? "hidden md:flex" : "flex"
       }`}
+      style={{ height: "100dvh" }}
     >
       {!selectedConversation && (
         <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -97,7 +95,8 @@ function Messagecontainer() {
 
       {selectedConversation && (
         <>
-          <div className="flex items-center justify-between p-3 border-b border-gray-800">
+          {/* HEADER */}
+          <div className="flex items-center justify-between p-3 border-b border-gray-800 flex-shrink-0">
             <button
               className="md:hidden text-white text-lg"
               onClick={() => {
@@ -119,15 +118,30 @@ function Messagecontainer() {
           </div>
 
           {isTyping && (
-            <p className="text-sm text-gray-400 px-3 py-1">typing...</p>
+            <p className="text-sm text-gray-400 px-3 py-1 flex-shrink-0">
+              typing...
+            </p>
           )}
 
-          <div className="flex-1 overflow-y-auto">
+          {/* SCROLLABLE MESSAGES */}
+          <div className="flex-1 overflow-y-auto min-h-0">
             <Texts />
           </div>
 
-          <div className="border-t border-gray-800 p-2">
+          {/* INPUT BAR
+              On mobile (md:hidden context) the fixed navbar is ~60px tall.
+              We add padding-bottom on mobile so the input sits above it.
+              On desktop (md+) no extra padding needed. */}
+          <div
+            className="flex-shrink-0 border-t border-gray-800 md:pb-0"
+            style={{
+              paddingBottom:
+                "calc(env(safe-area-inset-bottom, 0px))",
+            }}
+          >
+            {/* Extra spacer visible only on mobile to push input above navbar */}
             <Textinput />
+            <div className="h-16 md:hidden" />
           </div>
         </>
       )}

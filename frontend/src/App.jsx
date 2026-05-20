@@ -44,10 +44,13 @@ function App() {
     );
   }
 
-  return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-black text-white">
+  // Check if current route is messages — messages handles its own layout
+  const isMessagesRoute =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/messages");
 
-      {/* Toaster must be rendered here for toasts to appear anywhere in the app */}
+  return (
+    <div className="flex flex-col md:flex-row bg-black text-white min-h-screen">
       <Toaster
         position="top-center"
         toastOptions={{
@@ -57,45 +60,63 @@ function App() {
             border: "1px solid #374151",
           },
           success: {
-            iconTheme: {
-              primary: "#22c55e",
-              secondary: "#fff",
-            },
+            iconTheme: { primary: "#22c55e", secondary: "#fff" },
           },
           error: {
-            iconTheme: {
-              primary: "#ef4444",
-              secondary: "#fff",
-            },
+            iconTheme: { primary: "#ef4444", secondary: "#fff" },
           },
         }}
       />
 
-      {/* Sidebar */}
+      {/* Sidebar — desktop only */}
       {authUser && (
-        <div className="hidden md:block">
+        <div className="hidden md:flex md:flex-col md:flex-shrink-0">
           <Sidebar />
         </div>
       )}
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col items-center">
+      <main className="flex-1 flex flex-col items-center min-w-0">
         {authUser && <MobileSearch />}
         <div className="w-full max-w-2xl border-x border-gray-700">
           <Routes>
-            <Route path="/" element={authUser ? <Home /> : <Navigate to="/signin" />} />
-            <Route path="/signin" element={!authUser ? <Signin /> : <Navigate to="/" />} />
-            <Route path="/signup" element={!authUser ? <Signup /> : <Navigate to="/" />} />
-            <Route path="/profile/:username" element={authUser ? <Profile /> : <Navigate to="/signin" />} />
-            <Route path="/notifications" element={authUser ? <Notifications /> : <Navigate to="/signin" />} />
-            <Route path="/messages" element={authUser ? <Messages /> : <Navigate to="/signin" />} />
+            <Route
+              path="/"
+              element={authUser ? <Home /> : <Navigate to="/signin" />}
+            />
+            <Route
+              path="/signin"
+              element={!authUser ? <Signin /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/signup"
+              element={!authUser ? <Signup /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/profile/:username"
+              element={
+                authUser ? <Profile /> : <Navigate to="/signin" />
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                authUser ? <Notifications /> : <Navigate to="/signin" />
+              }
+            />
+            <Route
+              path="/messages"
+              element={
+                authUser ? <Messages /> : <Navigate to="/signin" />
+              }
+            />
           </Routes>
         </div>
       </main>
 
-      {/* Right panel */}
+      {/* Right panel — large screens only */}
       {authUser && (
-        <div className="hidden lg:block">
+        <div className="hidden lg:flex lg:flex-col lg:flex-shrink-0">
           <Rightpanel />
         </div>
       )}
