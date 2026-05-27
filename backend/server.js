@@ -43,8 +43,9 @@ app.use(helmet({
   contentSecurityPolicy: false,
 }));
 
-app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true }));
+// Increased to 20mb to handle base64 encoded images in JSON bodies
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 app.use(cookieParser());
 
 app.use(cors({
@@ -75,11 +76,8 @@ app.use("/api/message", generalLimiter, messageRoute);
 app.use("/api/notifications", generalLimiter, notificationsRoute);
 app.use("/api/account", generalLimiter, accountRoutes);
 
-// Serve frontend static files
-// dist folder is placed directly in the backend folder before zipping
 app.use(express.static(path.join(__dirname, "dist")));
 
-// All non-API routes serve index.html for React Router
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });

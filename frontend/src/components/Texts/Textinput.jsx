@@ -3,11 +3,13 @@ import { IoSend } from "react-icons/io5";
 import { FaMicrophone, FaStop, FaPlus } from "react-icons/fa";
 import { IoMdClose } from "react-icons/io";
 import useGetConversation from "../../../zustand/useGetConversations";
+import toast from "react-hot-toast";
 
 function Textinput() {
   const [message, setMessage] = useState("");
   const [media, setMedia] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaType, setMediaType] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
 
@@ -15,41 +17,96 @@ function Textinput() {
   const audioChunksRef = useRef([]);
   const fileInputRef = useRef(null);
   const recordingTimerRef = useRef(null);
-  const streamRef = useRef(null);
 
   const { selectedConversation, setMessages } = useGetConversation();
 
-  // ── MEDIA (image or video) ────────────────────────────────────────────
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
+  const compressImageToJpeg = (file) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+
+        const MAX = 1200;
+        let { width, height } = img;
+
+        if (width > MAX || height > MAX) {
+          if (width > height) {
+            height = Math.round((height * MAX) / width);
+            width = MAX;
+          } else {
+            width = Math.round((width * MAX) / height);
+            height = MAX;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            resolve(new File([blob], "photo.jpg", { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          0.85
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+
+      img.src = url;
+    });
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (!file) return;
-    setMedia(file);
 
-    if (file.type.startsWith("image")) {
-      const reader = new FileReader();
-      reader.onload = () => setMediaPreview(reader.result);
-      reader.readAsDataURL(file);
-    } else {
-      setMediaPreview(URL.createObjectURL(file));
+    const isVideo = file.type.startsWith("video/");
+
+    try {
+      if (isVideo) {
+        setMedia(file);
+        setMediaType("video");
+        setMediaPreview(URL.createObjectURL(file));
+      } else {
+        toast.loading("Processing image...", { id: "img-process" });
+        const compressed = await compressImageToJpeg(file);
+        toast.dismiss("img-process");
+
+        setMedia(compressed);
+        setMediaType("image");
+
+        const reader = new FileReader();
+        reader.onloadend = () => setMediaPreview(reader.result);
+        reader.readAsDataURL(compressed);
+      }
+    } catch (err) {
+      toast.dismiss("img-process");
+      console.error(err);
+      toast.error("Failed to process file. Please try again.");
     }
-
-    // Reset so the same file can be re-selected after cancel
-    e.target.value = "";
   };
 
   const handleCancelMedia = () => {
     setMedia(null);
     setMediaPreview(null);
+    setMediaType(null);
   };
 
-  // ── VOICE RECORDING — press and hold ─────────────────────────────────
   const startRecording = useCallback(async () => {
-    // Don't start a new recording if one is already running
     if (isRecording) return;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
 
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -68,23 +125,21 @@ function Textinput() {
           type: "audio/webm",
         });
         setMedia(audioFile);
+        setMediaType("audio");
         setMediaPreview(URL.createObjectURL(audioBlob));
-        stream.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
+        stream.getTracks().forEach((t) => t.stop());
         clearInterval(recordingTimerRef.current);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
 
-      // Show recording duration counter
       recordingTimerRef.current = setInterval(() => {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);
-    } catch (error) {
-      console.error("Microphone access denied:", error);
-      alert(
-        "Microphone access was denied. Please allow microphone access in your browser settings."
+    } catch {
+      toast.error(
+        "Microphone access denied. Please allow microphone access in your browser settings."
       );
     }
   }, [isRecording]);
@@ -98,42 +153,12 @@ function Textinput() {
     }
   }, [isRecording]);
 
-  // Touch events for press-and-hold on mobile
-  const handleMicTouchStart = (e) => {
-    e.preventDefault(); // prevents the 300ms click delay on mobile
-    startRecording();
+  const formatDuration = (s) => {
+    const m = Math.floor(s / 60).toString().padStart(2, "0");
+    const sec = (s % 60).toString().padStart(2, "0");
+    return `${m}:${sec}`;
   };
 
-  const handleMicTouchEnd = (e) => {
-    e.preventDefault();
-    stopRecording();
-  };
-
-  // Mouse events for press-and-hold on desktop
-  const handleMicMouseDown = (e) => {
-    e.preventDefault();
-    startRecording();
-  };
-
-  const handleMicMouseUp = (e) => {
-    e.preventDefault();
-    stopRecording();
-  };
-
-  // Safety net — if user drags off the button, still stop recording
-  const handleMicMouseLeave = () => {
-    if (isRecording) stopRecording();
-  };
-
-  const formatDuration = (seconds) => {
-    const m = Math.floor(seconds / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = (seconds % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
-  };
-
-  // ── SEND MESSAGE ──────────────────────────────────────────────────────
   const handleSendMessage = async () => {
     if (!message.trim() && !media) return;
 
@@ -166,35 +191,34 @@ function Textinput() {
       setMessage("");
       setMedia(null);
       setMediaPreview(null);
-    } catch (error) {
-      console.error(error);
+      setMediaType(null);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to send message");
     }
   };
 
   return (
     <div className="p-2 bg-black">
 
-      {/* MEDIA PREVIEW */}
       {mediaPreview && (
         <div className="mb-3 relative inline-block">
-          {/* Cancel button */}
           <button
             onClick={handleCancelMedia}
             className="absolute -top-2 -right-2 bg-black/80 hover:bg-black text-white rounded-full p-0.5 z-10"
-            title="Cancel"
           >
             <IoMdClose size={16} />
           </button>
 
-          {media?.type?.startsWith("audio") && (
+          {mediaType === "audio" && (
             <audio controls src={mediaPreview} className="w-full max-w-xs" />
           )}
-          {media?.type?.startsWith("video") && (
+          {mediaType === "video" && (
             <video controls className="w-52 rounded-lg max-h-40">
               <source src={mediaPreview} />
             </video>
           )}
-          {media?.type?.startsWith("image") && (
+          {mediaType === "image" && (
             <img
               src={mediaPreview}
               className="w-24 h-24 object-cover rounded-lg"
@@ -204,7 +228,6 @@ function Textinput() {
         </div>
       )}
 
-      {/* RECORDING INDICATOR */}
       {isRecording && (
         <div className="flex items-center gap-2 mb-2 px-1">
           <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -215,10 +238,8 @@ function Textinput() {
         </div>
       )}
 
-      {/* INPUT ROW */}
       <div className="flex items-center gap-2">
 
-        {/* + BUTTON — opens file picker for image or video */}
         <button
           type="button"
           onClick={() => fileInputRef.current.click()}
@@ -228,16 +249,13 @@ function Textinput() {
           <FaPlus size={14} />
         </button>
 
-        {/* Hidden file input — accepts both images and videos */}
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,video/*"
           hidden
           onChange={handleFileSelect}
         />
 
-        {/* TEXT INPUT */}
         <input
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -251,14 +269,13 @@ function Textinput() {
           className="flex-1 px-3 py-2 rounded-full bg-gray-900 text-white border border-gray-700 outline-none min-w-0"
         />
 
-        {/* MICROPHONE — press and hold to record */}
         <button
           type="button"
-          onMouseDown={handleMicMouseDown}
-          onMouseUp={handleMicMouseUp}
-          onMouseLeave={handleMicMouseLeave}
-          onTouchStart={handleMicTouchStart}
-          onTouchEnd={handleMicTouchEnd}
+          onMouseDown={(e) => { e.preventDefault(); startRecording(); }}
+          onMouseUp={(e) => { e.preventDefault(); stopRecording(); }}
+          onMouseLeave={() => { if (isRecording) stopRecording(); }}
+          onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+          onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
           onContextMenu={(e) => e.preventDefault()}
           className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition select-none ${
             isRecording
@@ -270,11 +287,9 @@ function Textinput() {
           {isRecording ? <FaStop size={13} /> : <FaMicrophone size={14} />}
         </button>
 
-        {/* SEND BUTTON */}
         <button
           onClick={handleSendMessage}
           className="flex-shrink-0 w-9 h-9 flex items-center justify-center bg-blue-600 hover:bg-blue-700 transition rounded-full text-white"
-          title="Send message"
         >
           <IoSend size={15} />
         </button>

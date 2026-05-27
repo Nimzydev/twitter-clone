@@ -24,22 +24,36 @@ const populatePost = (query) => {
 export const createPost = async (req, res) => {
   try {
     const { text } = req.body;
-    let { img } = req.body;
+    let imgUrl = "";
 
-    if (!text && !img) {
-      return res
-        .status(400)
-        .json({ error: "post must have either text or img" });
+    // Method 1: file uploaded via FormData (multipart) — preferred for mobile
+    // req.file is set by multer when the request is multipart/form-data
+    if (req.file) {
+      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      const upload = await cloudinary.uploader.upload(base64, {
+        folder: "posts",
+        resource_type: "image",
+      });
+      imgUrl = upload.secure_url;
+    }
+    // Method 2: base64 string sent in JSON body — fallback for desktop browsers
+    else if (req.body.img) {
+      const upload = await cloudinary.uploader.upload(req.body.img, {
+        folder: "posts",
+        resource_type: "image",
+      });
+      imgUrl = upload.secure_url;
     }
 
-    const userId = req.user._id;
-
-    if (img) {
-      const upload = await cloudinary.uploader.upload(img);
-      img = upload.secure_url;
+    if (!text && !imgUrl) {
+      return res.status(400).json({ error: "Post must have either text or an image" });
     }
 
-    const newPost = await Post.create({ user: userId, text, img });
+    const newPost = await Post.create({
+      user: req.user._id,
+      text,
+      img: imgUrl,
+    });
 
     const populatedPost = await populatePost(Post.findById(newPost._id));
 
@@ -65,17 +79,13 @@ export const likePost = async (req, res) => {
 
     if (alreadyLiked) {
       post.likes.pull(userId);
-      await User.findByIdAndUpdate(userId, {
-        $pull: { likedPosts: post._id },
-      });
+      await User.findByIdAndUpdate(userId, { $pull: { likedPosts: post._id } });
       await post.save();
       return res.status(200).json({ likes: post.likes, message: "unliked" });
     }
 
     post.likes.push(userId);
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: { likedPosts: post._id },
-    });
+    await User.findByIdAndUpdate(userId, { $addToSet: { likedPosts: post._id } });
     await post.save();
 
     if (post.user.toString() !== userId.toString()) {
@@ -185,19 +195,13 @@ export const retweetPost = async (req, res) => {
 
     if (alreadyRetweeted) {
       post.retweets.pull(userId);
-      await User.findByIdAndUpdate(userId, {
-        $pull: { retweetPosts: post._id },
-      });
+      await User.findByIdAndUpdate(userId, { $pull: { retweetPosts: post._id } });
       await post.save();
-      return res
-        .status(200)
-        .json({ retweets: post.retweets, message: "unretweeted" });
+      return res.status(200).json({ retweets: post.retweets, message: "unretweeted" });
     }
 
     post.retweets.push(userId);
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: { retweetPosts: post._id },
-    });
+    await User.findByIdAndUpdate(userId, { $addToSet: { retweetPosts: post._id } });
     await post.save();
 
     if (post.user.toString() !== userId.toString()) {
@@ -210,9 +214,7 @@ export const retweetPost = async (req, res) => {
       });
     }
 
-    return res
-      .status(200)
-      .json({ retweets: post.retweets, message: "retweeted" });
+    return res.status(200).json({ retweets: post.retweets, message: "retweeted" });
   } catch (error) {
     console.log("retweetPost error:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -294,8 +296,6 @@ export const getHomePosts = async (req, res) => {
   }
 };
 
-// ================= GET POST LIKERS =================
-// Returns the list of users who liked a specific post
 export const getPostLikers = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id).populate(
@@ -314,8 +314,6 @@ export const getPostLikers = async (req, res) => {
   }
 };
 
-// ================= GET POST RETWEETERS =================
-// Returns the list of users who retweeted a specific post
 export const getPostRetweeters = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id).populate(

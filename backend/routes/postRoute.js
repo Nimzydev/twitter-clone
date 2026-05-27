@@ -1,5 +1,6 @@
 import express from "express";
 import { protectRoute } from "../middleware/protectRoute.js";
+import upload from "../middleware/uploadMiddleware.js";
 
 import {
   createPost,
@@ -19,7 +20,8 @@ import {
 
 const route = express.Router();
 
-route.post("/create", protectRoute, createPost);
+// upload.single("img") allows createPost to receive a file via FormData
+route.post("/create", protectRoute, upload.single("img"), createPost);
 route.post("/like/:id", protectRoute, likePost);
 route.delete("/delete/:id", protectRoute, deletePost);
 route.post("/comment/:id", protectRoute, commentPost);
@@ -30,8 +32,6 @@ route.get("/retweetedposts/:id", protectRoute, getRetweetedPosts);
 route.get("/homeposts", protectRoute, getHomePosts);
 route.get("/followingposts", protectRoute, getFollowingPosts);
 route.get("/ownposts/:username", protectRoute, getOwnPosts);
-
-// New routes for viewing likers and retweeters
 route.get("/likers/:id", protectRoute, getPostLikers);
 route.get("/retweeters/:id", protectRoute, getPostRetweeters);
 
