@@ -8,6 +8,7 @@ import Notifications from "./Pages/Notifications/Notifications";
 import Messages from "./Pages/Messages/Messages";
 import Signin from "./Pages/Signin/Signin";
 import Signup from "./Pages/Signup/Signup";
+import ResetPassword from "./Pages/ResetPassword/ResetPassword";
 import { Toaster } from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
 import { TailSpin } from "react-loader-spinner";
@@ -44,11 +45,6 @@ function App() {
     );
   }
 
-  // Check if current route is messages — messages handles its own layout
-  const isMessagesRoute =
-    typeof window !== "undefined" &&
-    window.location.pathname.startsWith("/messages");
-
   return (
     <div className="flex flex-col md:flex-row bg-black text-white min-h-screen">
       <Toaster
@@ -68,53 +64,28 @@ function App() {
         }}
       />
 
-      {/* Sidebar — desktop only */}
       {authUser && (
         <div className="hidden md:flex md:flex-col md:flex-shrink-0">
           <Sidebar />
         </div>
       )}
 
-      {/* Main content */}
       <main className="flex-1 flex flex-col items-center min-w-0">
         {authUser && <MobileSearch />}
         <div className="w-full max-w-2xl border-x border-gray-700">
           <Routes>
-            <Route
-              path="/"
-              element={authUser ? <Home /> : <Navigate to="/signin" />}
-            />
-            <Route
-              path="/signin"
-              element={!authUser ? <Signin /> : <Navigate to="/" />}
-            />
-            <Route
-              path="/signup"
-              element={!authUser ? <Signup /> : <Navigate to="/" />}
-            />
-            <Route
-              path="/profile/:username"
-              element={
-                authUser ? <Profile /> : <Navigate to="/signin" />
-              }
-            />
-            <Route
-              path="/notifications"
-              element={
-                authUser ? <Notifications /> : <Navigate to="/signin" />
-              }
-            />
-            <Route
-              path="/messages"
-              element={
-                authUser ? <Messages /> : <Navigate to="/signin" />
-              }
-            />
+            <Route path="/" element={authUser ? <Home /> : <Navigate to="/signin" />} />
+            <Route path="/signin" element={!authUser ? <Signin /> : <Navigate to="/" />} />
+            <Route path="/signup" element={!authUser ? <Signup /> : <Navigate to="/" />} />
+            <Route path="/profile/:username" element={authUser ? <Profile /> : <Navigate to="/signin" />} />
+            <Route path="/notifications" element={authUser ? <Notifications /> : <Navigate to="/signin" />} />
+            <Route path="/messages" element={authUser ? <Messages /> : <Navigate to="/signin" />} />
+            {/* Reset password is always accessible even when logged out */}
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
           </Routes>
         </div>
       </main>
 
-      {/* Right panel — large screens only */}
       {authUser && (
         <div className="hidden lg:flex lg:flex-col lg:flex-shrink-0">
           <Rightpanel />

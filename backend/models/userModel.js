@@ -1,81 +1,89 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-    fullName: {
-        type: String,
-        required: true,
-    },
-    username: {
-        type: String,
-        required: true,
-        unique: true,
-    },
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-    },
-    password: {
-        type: String,
-        required: true,
-    },
+  fullName: {
+    type: String,
+    required: true,
+  },
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  password: {
+    type: String,
+    default: "",
+  },
 
-    profilePic: {
-        type: String,
-        default: "",
+  // Google OAuth
+  googleId: {
+    type: String,
+    default: null,
+  },
+
+  // Password reset
+  resetPasswordToken: {
+    type: String,
+    default: null,
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: null,
+  },
+
+  profilePic: {
+    type: String,
+    default: "",
+  },
+  coverImg: {
+    type: String,
+    default: "",
+  },
+  followers: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: [],
     },
-    coverImg: {
-        type: String,
-        default: "",
+  ],
+  following: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: [],
     },
-
-    followers: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            default: [],
-        },
-    ],
-
-    following: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            default: [],
-        },
-    ],
-
-    bio: {
-        type: String,
-        default: "",
+  ],
+  bio: {
+    type: String,
+    default: "",
+  },
+  likedPosts: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Post",
+      default: [],
     },
-
-    likedPosts: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Post",
-            default: [],
-        },
-    ],
-
-    retweetPosts: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Post",
-            default: [],
-        },
-    ],
-
-    // 🔥 NEW FEATURE: ACCOUNT STATUS
-    isDeactivated: {
-        type: Boolean,
-        default: false,
+  ],
+  retweetPosts: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Post",
+      default: [],
     },
-
-    isSuspended: {
-        type: Boolean,
-        default: false,
-    },
+  ],
+  isDeactivated: {
+    type: Boolean,
+    default: false,
+  },
+  isSuspended: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const User = mongoose.model("User", userSchema);
